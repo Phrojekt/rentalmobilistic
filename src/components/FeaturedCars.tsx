@@ -87,9 +87,12 @@ export default function FeaturedCars() {
           </div>
         ))}
       </div>
-      <button className="text-black font-geist text-sm font-bold w-[180px] h-10 p-2.5 gap-2.5 rounded border-[0.75px] border-[#676773]">
+      <Link
+        href="/cars"
+        className="text-black font-geist text-sm font-bold w-[180px] h-10 p-2.5 gap-2.5 rounded border-[0.75px] border-[#676773] flex items-center justify-center"
+      >
         View All Cars
-      </button>
+      </Link>
     </div>
   );
 }

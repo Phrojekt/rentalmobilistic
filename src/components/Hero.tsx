@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Hero() {
   return (
@@ -15,12 +16,18 @@ export default function Hero() {
             list yours for rent in a simple and secure way.
           </p>
           <div className="flex w-[600px] h-[54px] pr-2.5 items-end gap-2.5 max-lg:w-full">
-            <button className="text-white font-geist text-base font-bold w-[230px] h-[54px] p-2.5 gap-2.5 rounded-lg bg-[#EA580C] max-sm:flex-1">
+            <Link
+              href="/register"
+              className="text-white font-geist text-base font-bold w-[230px] h-[54px] p-2.5 gap-2.5 rounded-lg bg-[#EA580C] max-sm:flex-1 flex items-center justify-center"
+            >
               Register for Free
-            </button>
-            <button className="text-white font-geist text-base font-bold w-[230px] h-[54px] p-2.5 gap-2.5 rounded-lg border-[0.4px] border-[#EA580C] bg-[#2B3344] max-sm:flex-1">
+            </Link>
+            <Link
+              href="/cars"
+              className="text-white font-geist text-base font-bold w-[230px] h-[54px] p-2.5 gap-2.5 rounded-lg border-[0.4px] border-[#EA580C] bg-[#2B3344] max-sm:flex-1 flex items-center justify-center"
+            >
               View Available Cars
-            </button>
+            </Link>
           </div>
         </div>
         <div className="flex w-[600px] h-[290px] justify-center items-center rounded-[10px] bg-[#E7CEBF] max-lg:w-full max-lg:mt-10">

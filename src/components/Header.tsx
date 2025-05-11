@@ -46,7 +46,6 @@ export default function Header() {
           { name: "Cars", href: "/cars" },
           { name: "How it Works", href: "#how-it-works" },
           { name: "About Us", href: "#testimonials" },
-          { name: "Contact", href: "#" },
         ].map((item) => (
           <Link
             key={item.name}
@@ -59,34 +58,33 @@ export default function Header() {
 
         <div className="flex items-center gap-2.5">
           <button className="flex w-[38px] p-[8px_4px] justify-center items-center gap-2.5 rounded border-[0.6px] border-[#E4E4E7]">
+            {/* Substituindo o sino pelo símbolo de um sol */}
             <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
               xmlns="http://www.w3.org/2000/svg"
+              className="w-6 h-6 text-yellow-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
               <path
-                d="M12 22C10.8954 22 10 21.1046 10 20H14C14 21.1046 13.1046 22 12 22ZM20 19H4V17L6 16V11C6 7.68629 8.68629 5 12 5C15.3137 5 18 7.68629 18 11V16L20 17V19ZM12 3C12.5523 3 13 3.44772 13 4C13 4.55228 12.5523 5 12 5C11.4477 5 11 4.55228 11 4C11 3.44772 11.4477 3 12 3Z"
-                fill="#0F0F0F"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 3v1m0 16v1m8.485-8.485h-1M4.515 12h-1m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
               />
             </svg>
           </button>
           <Link
-            href="/login" // Conectando o botão de Login à rota de login
+            href="/login"
             className="flex w-[100px] h-[38px] p-2.5 justify-center items-center gap-2.5"
           >
-            <span className="text-black font-inter text-base font-black">
-              Login
-            </span>
+            <span className="text-black font-inter text-base font-black">Login</span>
           </Link>
           <Link
             href="/register"
             className="flex w-[126px] h-[38px] p-2.5 justify-center items-center gap-2.5 rounded bg-[#EA580C]"
           >
-            <span className="text-white font-inter text-base font-medium">
-              Register
-            </span>
+            <span className="text-white font-inter text-base font-medium">Register</span>
           </Link>
         </div>
       </nav>
