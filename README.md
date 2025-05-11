@@ -1,3 +1,126 @@
+# Rental Mobilistic
+
+Rental Mobilistic é uma plataforma completa para aluguel de carros de terceiros. Os usuários podem alugar veículos ou listar seus próprios carros para aluguel de forma simples e segura.
+
+## Funcionalidades
+
+- **Landing Page**: Página inicial com informações sobre a plataforma e botões para registro e visualização de carros disponíveis.
+- **Cadastro e Login**: Páginas dedicadas para registro e login de usuários.
+- **Listagem de Carros**: Exibição de carros em destaque e uma página dedicada para visualizar todos os carros disponíveis.
+- **Depoimentos**: Seção com feedback de usuários (proprietários e locatários).
+- **Responsividade**: Design responsivo para garantir uma boa experiência em dispositivos móveis e desktops.
+
+## Tecnologias Utilizadas
+
+- **Next.js**: Framework React para renderização do lado do servidor e geração de páginas estáticas.
+- **Tailwind CSS**: Framework CSS para estilização rápida e responsiva.
+- **TypeScript**: Linguagem para tipagem estática e desenvolvimento mais seguro.
+- **Lucide Icons**: Biblioteca de ícones para melhorar a interface do usuário.
+
+## Estrutura do Projeto
+
+```plaintext
+rentalmobilistic/
+├── public/                # Arquivos públicos (imagens, ícones, etc.)
+├── src/
+│   ├── app/
+│   │   ├── page.tsx       # Página inicial (Landing Page)
+│   │   ├── register/      # Página de registro
+│   │   ├── login/         # Página de login
+│   │   └── cars/          # Página de listagem de carros
+│   ├── components/
+│   │   ├── Header.tsx     # Cabeçalho com navegação e Dark Mode
+│   │   ├── Hero.tsx       # Seção inicial com chamada para ação
+│   │   ├── FeaturedCars.tsx # Carros em destaque
+│   │   ├── Testimonials.tsx # Depoimentos de usuários
+│   │   └── Footer.tsx     # Rodapé do site
+│   └── styles/            # Estilos globais e configurações do Tailwind CSS
+├── README.md              # Documentação do projeto
+├── package.json           # Dependências e scripts do projeto
+└── tailwind.config.js     # Configuração do Tailwind CSS
+```
+
+## Como Executar o Projeto
+
+### Pré-requisitos
+
+- Node.js (versão 16 ou superior)
+- Gerenciador de pacotes (npm, yarn, pnpm ou bun)
+
+### Passos
+
+1. Clone o repositório:
+
+   ```bash
+   git clone https://github.com/seu-usuario/rental-mobilistic.git
+   cd rental-mobilistic
+   ```
+
+2. Instale as dependências:
+
+   ```bash
+   npm install
+   # ou
+   yarn install
+   ```
+
+3. Inicie o servidor de desenvolvimento:
+
+   ```bash
+   npm run dev
+   # ou
+   yarn dev
+   ```
+
+4. Abra [http://localhost:3000](http://localhost:3000) no navegador para visualizar o projeto.
+
+## Funcionalidades Detalhadas
+
+### Header
+- Navegação com links para as páginas principais: Home, Cars, How it Works e About Us.
+- Botões para Login e Registro.
+
+### Hero Section
+- Texto introdutório sobre a plataforma.
+- Botões para registro e visualização de carros disponíveis.
+
+### Featured Cars
+- Exibição de carros em destaque com informações como nome, preço, cidade e disponibilidade.
+- Botão "View All Cars" que redireciona para a página de listagem completa de carros.
+
+### Testimonials
+- Depoimentos de usuários (proprietários e locatários) com feedback sobre a plataforma.
+
+### Footer
+- Informações adicionais e links úteis.
+
+## Próximos Passos
+
+- Implementar autenticação real para login e registro.
+- Adicionar integração com uma API para listar carros reais.
+- Melhorar a acessibilidade do site.
+- Adicionar testes automatizados para garantir a qualidade do código.
+
+## Contribuição
+
+Contribuições são bem-vindas! Siga os passos abaixo para contribuir:
+
+1. Faça um fork do repositório.
+2. Crie uma branch para sua feature ou correção: `git checkout -b minha-feature`.
+3. Faça commit das suas alterações: `git commit -m 'Minha nova feature'`.
+4. Envie para o repositório remoto: `git push origin minha-feature`.
+5. Abra um Pull Request.
+
+## Licença
+
+Este projeto está licenciado sob a licença MIT. Consulte o arquivo `LICENSE` para mais informações.
+
+---
+
+Desenvolvido com ❤️ pela equipe Rental Mobilistic.
+
+
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
