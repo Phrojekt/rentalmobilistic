@@ -57,23 +57,6 @@ export default function Header() {
         ))}
 
         <div className="flex items-center gap-2.5">
-          <button className="flex w-[38px] p-[8px_4px] justify-center items-center gap-2.5 rounded border-[0.6px] border-[#E4E4E7]">
-            {/* Substituindo o sino pelo símbolo de um sol */}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-6 h-6 text-yellow-500"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 3v1m0 16v1m8.485-8.485h-1M4.515 12h-1m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-              />
-            </svg>
-          </button>
           <Link
             href="/login"
             className="flex w-[100px] h-[38px] p-2.5 justify-center items-center gap-2.5"
