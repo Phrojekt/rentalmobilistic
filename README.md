@@ -14,6 +14,7 @@ Rental Mobilistic é uma plataforma completa para aluguel de carros de terceiros
 
 - **Next.js**: Framework React para renderização do lado do servidor e geração de páginas estáticas.
 - **Tailwind CSS**: Framework CSS para estilização rápida e responsiva.
+- **Firebase** : Hospedagem de Banco de Dados
 - **TypeScript**: Linguagem para tipagem estática e desenvolvimento mais seguro.
 - **Lucide Icons**: Biblioteca de ícones para melhorar a interface do usuário.
 
@@ -24,17 +25,35 @@ rentalmobilistic/
 ├── public/                # Arquivos públicos (imagens, ícones, etc.)
 ├── src/
 │   ├── app/
+        ├── admin/cars
+           ├── [id]/       # Frontend de edição dos carros postados pelo usúario
+           ├── new/        # Frontend de criação para colocar um carro para alugar
+           ├── page.tsx    # Dashboard do usuário
+           ├── layout.tsx  # Layout do usuário
 │   │   ├── page.tsx       # Página inicial (Landing Page)
 │   │   ├── register/      # Página de registro
 │   │   ├── login/         # Página de login
 │   │   └── cars/          # Página de listagem de carros
 │   ├── components/
+│   │   ├── Bookingmodal.tsx # Frontend do modal da reserva de aluguel dos carros
+│   │   ├── CarDetails.tsx # Frontend do detalhamento da página de rota dinâmica de cada carro
+│   │   ├── Carform.tsx    # Formulário para listar um carro para aluguel
+│   │   ├── Cargrid.tsx    # Cartões de cada carro
 │   │   ├── Header.tsx     # Cabeçalho com navegação e Dark Mode
 │   │   ├── Hero.tsx       # Seção inicial com chamada para ação
 │   │   ├── FeaturedCars.tsx # Carros em destaque
+│   │   ├── SearchBar.tsx  # Barra de pesquisa
+│   │   ├── SearchFilters.tsx # Filtros da barra de pesquisa
 │   │   ├── Testimonials.tsx # Depoimentos de usuários
 │   │   └── Footer.tsx     # Rodapé do site
 │   └── styles/            # Estilos globais e configurações do Tailwind CSS
+│   ├── contexts/          # Api de sistema de login
+│   ├── hooks/             # Api de implementação de login de usuário  
+│   ├── lib/               # Arquivo de config do Firebase
+│   ├── Services/          # Backend(APIs e afins)
+│   │   ├── carServices.ts  # Api da manipulação seja criação editar ou exclusão de novos carros
+│       ├── cartServices.ts # Api da manipulação do sistema de aluguel de carros
+│       ├── userServices.ts # Api da criação e manipulação de usuários
 ├── README.md              # Documentação do projeto
 ├── package.json           # Dependências e scripts do projeto
 └── tailwind.config.js     # Configuração do Tailwind CSS

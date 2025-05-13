@@ -1,17 +1,79 @@
-export default function SearchBar() {
+"use client";
+
+import { useState, FormEvent } from "react";
+
+interface SearchFilters {
+  location?: string;
+  startDate?: Date;
+  endDate?: Date;
+  carType?: string;
+}
+
+interface SearchBarProps {
+  onSearch: (filters: SearchFilters) => void;
+}
+
+export default function SearchBar({ onSearch }: SearchBarProps) {
+  const [location, setLocation] = useState("");
+  const [pickupDate, setPickupDate] = useState("");
+  const [returnDate, setReturnDate] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSearching(true);
+    
+    const filters: SearchFilters = {
+      location: location || undefined,
+      startDate: pickupDate ? new Date(pickupDate) : undefined,
+      endDate: returnDate ? new Date(returnDate) : undefined,
+    };
+    
+    try {
+      await onSearch(filters);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   return (
     <div className="flex w-full h-[211px] pt-[50px] pb-2.5 px-2.5 justify-center items-start gap-2.5 bg-white max-lg:h-auto">
       <div className="flex w-[1096px] h-[124px] p-2.5 flex-col items-center gap-5 rounded-b-lg bg-white shadow-[0px_2px_4px_0px_rgba(0,0,0,0.25),1px_8px_4px_0px_rgba(0,0,0,0.18)] max-lg:w-full max-lg:h-auto">
         <h2 className="text-black font-geist text-2xl font-bold">
           Find the ideal car for you
         </h2>
-        <div className="flex h-[58px] px-5 items-end gap-[55px] w-full max-lg:h-auto max-lg:flex-col max-lg:gap-5">
+        <form onSubmit={handleSubmit} className="flex w-full gap-4">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Procure por marca, cidade ou estado..."
+              className="text-black w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+            {isSearching && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-orange-500 border-t-transparent"></div>
+              </div>
+            )}
+          </div>
           <input
-            type="text"
-            placeholder="Brand, model or city"
-            className="text-[#676773] font-inter text-sm font-normal w-[811px] h-[45px] px-2.5 gap-2.5 rounded-lg border border-[#E4E4E7] max-lg:w-full"
+            type="date"
+            value={pickupDate}
+            onChange={(e) => setPickupDate(e.target.value)}
+            className="text-black flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
           />
-          <button className="flex w-[170px] max-lg:w-full h-[45px] p-[5px_15px] justify-center items-center gap-1 rounded-lg bg-[#EA580C]">
+          <input
+            type="date"
+            value={returnDate}
+            onChange={(e) => setReturnDate(e.target.value)}
+            className="text-black flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+          />
+          <button
+            type="submit"
+            disabled={isSearching}
+            className="flex w-[170px] max-lg:w-full h-[45px] p-[5px_15px] justify-center items-center gap-1 rounded-lg bg-[#EA580C] text-white hover:bg-[#d64d08] transition-colors disabled:bg-[#d64d08] disabled:cursor-not-allowed"
+          >
             <svg
               width="16"
               height="16"
@@ -20,15 +82,16 @@ export default function SearchBar() {
               xmlns="http://www.w3.org/2000/svg"
             >
               <path
-                d="M13.6148 13.6148C13.1013 14.1284 12.2688 14.1284 11.7552 13.6148L9.43477 11.2943C8.48081 11.9064 7.35307 12.271 6.13547 12.271C2.74722 12.271 0 9.52422 0 6.13547C0 2.74722 2.74722 0 6.13547 0C9.52422 0 12.271 2.74672 12.271 6.13547C12.271 7.35267 11.9059 8.48081 11.2943 9.43517L13.6148 11.7557C14.1284 12.2693 14.1284 13.1013 13.6148 13.6148Z"
-                fill="white"
+                d="M15.7881 14.7881L11.8539 10.8539M11.8539 10.8539C13.0179 9.68989 13.7145 8.13649 13.7145 6.50726C13.7145 4.87803 13.0179 3.32463 11.8539 2.16065C10.6899 0.996669 9.13649 0.300049 7.50726 0.300049C5.87803 0.300049 4.32463 0.996669 3.16065 2.16065C1.99667 3.32463 1.30005 4.87803 1.30005 6.50726C1.30005 8.13649 1.99667 9.68989 3.16065 10.8539C4.32463 12.0179 5.87803 12.7145 7.50726 12.7145C9.13649 12.7145 10.6899 12.0179 11.8539 10.8539ZM11.8539 10.8539L15.7881 14.7881"
+                stroke="white"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
             </svg>
-            <span className="text-white font-inter text-sm font-bold">
-              Search
-            </span>
+            {isSearching ? 'Buscando...' : 'Search'}
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );

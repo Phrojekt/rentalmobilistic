@@ -2,8 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FirebaseError } from 'firebase/app';
+import { userService } from "@/services/userService";
 
 export function RegisterForm() {
+  const router = useRouter();
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -11,10 +16,47 @@ export function RegisterForm() {
     confirmPassword: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    console.log("Form submitted:", formData);
+    setError("");
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("As senhas não coincidem");
+      return;
+    }
+
+    try {
+      await userService.register(
+        formData.email,
+        formData.password,
+        formData.fullName
+      );
+      router.push('/login');
+    } catch (err) {
+      console.error("Erro no registro:", err);
+      // Tratamento específico para erros do Firebase
+      // Tratamento específico para erros do Firebase
+      if (err instanceof FirebaseError && err.code) {
+        switch (err.code) {
+          case 'auth/email-already-in-use':
+            setError('Este e-mail já está sendo usado por outra conta.');
+            break;
+          case 'auth/invalid-email':
+            setError('O e-mail fornecido é inválido.');
+            break;
+          case 'auth/operation-not-allowed':
+            setError('O registro com e-mail e senha não está habilitado.');
+            break;
+          case 'auth/weak-password':
+            setError('A senha deve ter pelo menos 6 caracteres.');
+            break;
+          default:
+            setError(err.message || 'Erro ao criar conta. Tente novamente.');
+        }
+      } else {
+        setError('Erro ao criar conta. Tente novamente.');
+      }
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,6 +80,12 @@ export function RegisterForm() {
           Fill in the fields below to register on the platform
         </p>
       </div>
+
+      {error && (
+        <div className="w-full p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
+        </div>
+      )}
 
       <div className="flex flex-col w-full gap-2">
         {[

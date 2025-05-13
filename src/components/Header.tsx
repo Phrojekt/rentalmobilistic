@@ -1,129 +1,134 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+import { userService } from "@/services/userService";
 
 export default function Header() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, loading } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await userService.logout();
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
   return (
-    <header className="flex w-full h-[82px] px-20 justify-between items-center border-[0.25px] border-black max-lg:px-10 max-sm:px-5">
-      <div className="flex items-center">
-        <svg
-          width="327"
-          height="58"
-          viewBox="0 0 327 58"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="flex w-[327px] max-lg:w-[200px] max-sm:w-[150px] h-[58px] p-[10px] items-center gap-[10px]"
-        >
-          {/* SVG do logo */}
-          <text
-            fill="black"
-            xmlSpace="preserve"
-            style={{ whiteSpace: "pre" }}
-            fontFamily="Geist"
-            fontSize="24"
-            fontWeight="900"
-            letterSpacing="0em"
-          >
-            <tspan x="66.5063" y="37.52">
-              Rental Mobilistic
-            </tspan>
-          </text>
-        </svg>
-      </div>
+    <header className="flex w-full h-[120px] justify-center items-center bg-white border-b border-[#D4D4D4]">
+      <div className="flex w-[1240px] h-[80px] justify-between items-center px-5">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="relative w-20 h-20">
+            <Image
+              src="https://res.cloudinary.com/teepublic/image/private/s--uy8uIxhe--/t_Resized%20Artwork/c_fit,g_north_west,h_1054,w_1054/co_ffffff,e_outline:53/co_ffffff,e_outline:inner_fill:53/co_bbbbbb,e_outline:3:1000/c_mpad,g_center,h_1260,w_1260/b_rgb:eeeeee/c_limit,f_auto,h_630,q_auto:good:420,w_630/v1561313766/production/designs/5142729_0.jpg"
+              alt="Rental Mobilistic Logo"
+              fill
+              className="object-contain"
+              priority
+            />
+          </div>
+          <span className="text-[#EA580C] font-geist text-xl font-black">
+            Hentai Mobilistic
+          </span>
+        </Link>
 
-      {/* Navegação para telas grandes */}
-      <nav className="flex w-[743px] justify-between items-center gap-[30px] max-lg:w-auto max-sm:hidden">
-        {[
-          { name: "Home", href: "/" },
-          { name: "Cars", href: "/cars" },
-          { name: "How it Works", href: "#how-it-works" },
-          { name: "About Us", href: "#testimonials" },
-        ].map((item) => (
+        <nav className="flex items-center gap-5">
           <Link
-            key={item.name}
-            href={item.href}
-            className="text-black font-inter text-lg font-medium"
+            href="/"
+            className="text-black font-geist text-base font-medium hover:text-[#EA580C] transition-colors"
           >
-            {item.name}
+            Home
           </Link>
-        ))}
+          <Link
+            href="/cars"
+            className="text-black font-geist text-base font-medium hover:text-[#EA580C] transition-colors"
+          >
+            Cars
+          </Link>
+          <Link
+            href="#how-it-works"
+            className="text-black font-geist text-base font-medium hover:text-[#EA580C] transition-colors"
+          >
+            How it Works
+          </Link>
+          <Link
+            href="#about-us"
+            className="text-black font-geist text-base font-medium hover:text-[#EA580C] transition-colors"
+          >
+            About Us
+          </Link>
+          {!loading && user && (
+            <Link
+              href="/admin/cars"
+              className="text-black font-geist text-base font-medium hover:text-[#EA580C] transition-colors"
+            >
+              My Cars
+            </Link>
+          )}
+        </nav>
 
         <div className="flex items-center gap-2.5">
-          <Link
-            href="/login"
-            className="flex w-[100px] h-[38px] p-2.5 justify-center items-center gap-2.5"
-          >
-            <span className="text-black font-inter text-base font-black">Login</span>
-          </Link>
-          <Link
-            href="/register"
-            className="flex w-[126px] h-[38px] p-2.5 justify-center items-center gap-2.5 rounded bg-[#EA580C]"
-          >
-            <span className="text-white font-inter text-base font-medium">Register</span>
-          </Link>
+          {loading ? (
+            <div className="flex items-center gap-2 text-[#676773]">
+              <div className="w-6 h-6 animate-pulse bg-gray-200 rounded-full"></div>
+              <span>Loading...</span>
+            </div>
+          ) : user ? (
+            <div className="flex items-center gap-4">
+              <Link
+                href="/admin/cars"
+                className="flex items-center gap-2 text-black font-geist text-base font-medium hover:text-[#EA580C] transition-colors"
+              >
+                <Image
+                  src="/Add_user_icon.png"
+                  alt="User Icon"
+                  width={24}
+                  height={24}
+                  className="object-contain"
+                />
+                {user.fullName || 'My Dashboard'}
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="flex h-[54px] px-5 items-center gap-2.5 rounded-lg bg-red-600 text-white font-geist text-base font-bold hover:bg-red-700 transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="flex h-[54px] px-5 items-center gap-2.5 rounded-lg bg-white text-black font-geist text-base font-bold hover:bg-gray-50 transition-colors"
+              >
+                <Image
+                  src="/Login_Icon.png"
+                  alt="Login Icon"
+                  width={24}
+                  height={24}
+                  className="object-contain"
+                />
+                Login
+              </Link>
+              <Link
+                href="/register"
+                className="flex h-[54px] px-5 items-center gap-2.5 rounded-lg bg-[#EA580C] text-white font-geist text-base font-bold hover:bg-[#D45207] transition-colors"
+              >
+                <Image
+                  src="/Add_user_icon.png"
+                  alt="Register Icon"
+                  width={24}
+                  height={24}
+                  className="object-contain"
+                />
+                Register
+              </Link>
+            </>
+          )}
         </div>
-      </nav>
-
-      {/* Botão do menu hambúrguer para telas pequenas */}
-      <button
-        className="hidden max-sm:block hover:bg-gray-200 p-2 rounded transition duration-200"
-        onClick={() => setIsMenuOpen(!isMenuOpen)}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-6 h-6"
-          viewBox="0 0 24 24"
-          strokeWidth="2"
-          stroke="currentColor"
-          fill="none"
-        >
-          <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
-          <path d="M4 6h16"></path>
-          <path d="M4 12h16"></path>
-          <path d="M4 18h16"></path>
-        </svg>
-      </button>
-
-      {/* Menu dropdown para telas pequenas */}
-      {isMenuOpen && (
-        <div className="absolute top-[82px] left-0 w-full bg-white shadow-lg border-t border-gray-200 z-50 max-sm:flex flex-col items-start gap-4 p-5">
-          {[
-            { name: "Home", href: "/" },
-            { name: "Cars", href: "/cars" },
-            { name: "How it Works", href: "#how-it-works" },
-            { name: "About Us", href: "#testimonials" },
-          ].map((item) => (
-            <Link
-              key={item.name}
-              href={item.href}
-              className="text-black font-inter text-lg font-medium w-full"
-              onClick={() => setIsMenuOpen(false)} // Fecha o menu ao clicar
-            >
-              {item.name}
-            </Link>
-          ))}
-
-          <div className="flex flex-col gap-2 w-full">
-            <Link
-              href="/login"
-              className="flex w-full h-[38px] p-2.5 justify-center items-center gap-2.5 border border-gray-300 rounded"
-              onClick={() => setIsMenuOpen(false)} // Fecha o menu ao clicar
-            >
-              <span className="text-black font-inter text-base font-black">Login</span>
-            </Link>
-            <Link
-              href="/register"
-              className="flex w-full h-[38px] p-2.5 justify-center items-center gap-2.5 rounded bg-[#EA580C]"
-              onClick={() => setIsMenuOpen(false)} // Fecha o menu ao clicar
-            >
-              <span className="text-white font-inter text-base font-medium">Register</span>
-            </Link>
-          </div>
-        </div>
-      )}
+      </div>
     </header>
   );
 }

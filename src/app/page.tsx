@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Header from "../components/Header";
+interface SearchFilters {
+  location?: string;
+  startDate?: Date;
+  endDate?: Date;
+  carType?: string;
+}
 import Hero from "@/components/Hero";
 import SearchBar from "@/components/SearchBar";
 import FeaturedCars from "@/components/FeaturedCars";
@@ -10,6 +17,19 @@ import Testimonials from "@/components/Testimonials";
 import Footer from "@/components/Footer";
 
 export default function Home() {
+  const router = useRouter();
+  
+  const handleSearch = (filters: SearchFilters) => {
+    // Constrói a URL com os parâmetros de busca
+    const searchParams = new URLSearchParams();
+    if (filters.location) searchParams.set('location', filters.location);
+    if (filters.startDate) searchParams.set('pickupDate', filters.startDate.toString());
+    if (filters.endDate) searchParams.set('returnDate', filters.endDate.toString());
+    
+    // Redireciona para a página de carros com os filtros
+    router.push(`/cars?${searchParams.toString()}`);
+  };
+  
   const [showAlert, setShowAlert] = useState(true);
 
   return (
@@ -26,7 +46,7 @@ export default function Home() {
               funcionalidades e estilizações, tal como imagens, não foram
               adicionados.
             </p>
-            <button
+          <button
               onClick={() => setShowAlert(false)}
               className="mt-4 px-4 py-2 cursor-pointer bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
             >
@@ -38,7 +58,7 @@ export default function Home() {
 
       <Header />
       <Hero />
-      <SearchBar />
+      <SearchBar onSearch={handleSearch} />
       <FeaturedCars />
       <HowItWorks />
       <Testimonials />

@@ -2,18 +2,49 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { userService } from "@/services/userService";
 
 export function LoginForm() {
+  const router = useRouter();
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     rememberMe: false,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    console.log("Form submitted:", formData);
+    setError("");
+
+    try {
+      await userService.login(formData.email, formData.password);
+      router.push("/"); // Redireciona para a página inicial após o login
+    } catch (err: unknown) {
+      console.error("Erro no login:", err);
+      // Tratamento específico para erros do Firebase
+      if (err && typeof err === 'object' && 'code' in err) {
+        switch (err.code) {
+          case 'auth/invalid-email':
+            setError('Email inválido.');
+            break;
+          case 'auth/user-disabled':
+            setError('Esta conta foi desativada.');
+            break;
+          case 'auth/user-not-found':
+            setError('Usuário não encontrado.');
+            break;
+          case 'auth/wrong-password':
+            setError('Senha incorreta.');
+            break;
+          default:
+            setError('Erro ao fazer login. Tente novamente.');
+        }
+      } else {
+        setError('Erro ao fazer login. Tente novamente.');
+      }
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,6 +68,12 @@ export function LoginForm() {
           Enter your email and password to access your account
         </p>
       </div>
+
+      {error && (
+        <div className="w-full p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
+        </div>
+      )}
 
       <div className="flex flex-col w-full gap-2">
         <div className="flex flex-col gap-2">
@@ -108,7 +145,7 @@ export function LoginForm() {
       </button>
 
       <p className="text-center text-sm font-geist">
-        Don't have an account yet?{" "}
+        Don&apos;t have an account yet?{" "}
         <Link
           href="/register"
           className="text-[#EA580C] underline cursor-pointer"

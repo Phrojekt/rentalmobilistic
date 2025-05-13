@@ -1,14 +1,64 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { carService } from "@/services/carService";
+import type { Car } from "@/services/carService";
 
 export default function FeaturedCars() {
-  const cars = Array(4).fill({
-    name: "Car Name and Year",
-    price: "$150/day",
-    city: "City",
-    seats: "Number of Seats",
-    availability: "Availability",
-  });
+  const [cars, setCars] = useState<Car[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadCars = async () => {
+      try {
+        const result = await carService.getFeaturedCars(4);
+        console.log('Carros em destaque carregados:', result); // Debug
+        setCars(result);
+      } catch (error) {
+        console.error("Erro ao carregar carros em destaque:", error);
+        setError("Não foi possível carregar os carros em destaque");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCars();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex w-full p-2.5 flex-col items-center gap-[20px]">
+        <div className="flex w-full h-20 px-2.5 flex-col items-center gap-2.5">
+          <h2 className="text-black font-geist text-4xl font-extrabold">
+            Carros em Destaque
+          </h2>
+          <p className="text-[#676773] font-geist text-sm font-medium">
+            Carregando...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex w-full p-2.5 flex-col items-center gap-[20px]">
+        <div className="flex w-full h-20 px-2.5 flex-col items-center gap-2.5">
+          <p className="text-red-500 font-geist text-sm font-medium">
+            {error}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Se não houver carros, não mostra a seção
+  if (!cars || cars.length === 0) {
+    return null;
+  }
 
   return (
     <div
@@ -17,20 +67,32 @@ export default function FeaturedCars() {
     >
       <div className="flex w-full h-20 px-2.5 flex-col items-center gap-2.5">
         <h2 className="text-black font-geist text-4xl font-extrabold">
-          Featured Cars
+          Carros em Destaque
         </h2>
         <p className="text-[#676773] font-geist text-sm font-medium">
-          Check out some of the best vehicles available for rent
+          Confira alguns dos melhores veículos disponíveis para aluguel
         </p>
       </div>
+
       <div className="grid grid-cols-4 gap-[15px] w-full max-xl:grid-cols-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
-        {cars.map((car, index) => (
-          <div
-            key={index}
-            className="flex w-[320px] h-[346px] flex-col items-center gap-2.5 rounded-lg border-[0.75px] border-[#D4D4D4] bg-white mx-auto"
+        {cars.map((car) => (
+          <Link
+            href={`/cars/${car.id}`}
+            key={car.id}
+            className="flex w-[320px] h-[346px] flex-col items-center gap-2.5 rounded-lg border-[0.75px] border-[#D4D4D4] bg-white mx-auto hover:border-[#EA580C] transition-colors"
           >
             {/* Imagem do carro */}
-            <div className="w-full h-40 bg-[#B5B2B2] rounded-t-lg" />
+            <div className="w-full h-40 bg-[#B5B2B2] rounded-t-lg relative overflow-hidden">
+              {car.images && car.images[0] && (
+                <Image
+                  src={car.images[0]}
+                  alt={car.name}
+                  fill
+                  className="object-cover"
+                  sizes="320px"
+                />
+              )}
+            </div>
 
             {/* Cabeçalho do carro */}
             <div className="flex w-full h-[30px] px-5 justify-between items-center">
@@ -38,7 +100,7 @@ export default function FeaturedCars() {
                 {car.name}
               </h3>
               <span className="text-[#EA580C] font-geist text-[10px] font-medium w-[60px] h-5 flex items-center justify-center rounded-[30px] bg-[#FFF7ED]">
-                {car.price}
+                R$ {car.pricePerDay.toLocaleString('pt-BR')}/dia
               </span>
             </div>
 
@@ -53,7 +115,7 @@ export default function FeaturedCars() {
                   className="object-contain"
                 />
                 <span className="font-inter text-sm font-medium">
-                  {car.city}
+                  {car.location.city}, {car.location.state}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-[#676773]">
@@ -65,7 +127,7 @@ export default function FeaturedCars() {
                   className="object-contain"
                 />
                 <span className="font-inter text-sm font-medium">
-                  {car.seats}
+                  {car.seats} assentos
                 </span>
               </div>
               <div className="flex items-center gap-2 text-[#676773]">
@@ -77,26 +139,23 @@ export default function FeaturedCars() {
                   className="object-contain"
                 />
                 <span className="font-inter text-sm font-medium">
-                  {car.availability}
+                  {car.availability === "available"
+                    ? "Disponível"
+                    : car.availability === "rented"
+                    ? "Alugado"
+                    : "Em manutenção"}
                 </span>
               </div>
             </div>
-
-            {/* Botão de detalhes */}
-            <Link
-              href={`/cars/${index + 1}`}
-              className="w-[calc(100%-40px)] h-9 rounded bg-[#EA580C] text-white font-geist text-sm font-bold flex items-center justify-center mx-5"
-            >
-              View Details
-            </Link>
-          </div>
+          </Link>
         ))}
       </div>
+
       <Link
         href="/cars"
-        className="text-black font-geist text-sm font-bold w-[180px] h-10 p-2.5 gap-2.5 rounded border-[0.75px] border-[#676773] flex items-center justify-center"
+        className="flex w-[230px] h-[54px] p-2.5 justify-center items-center gap-2.5 rounded-lg border-[0.4px] border-[#EA580C] bg-[#2B3344] text-white font-geist text-base font-bold hover:bg-[#3B4357] transition-colors"
       >
-        View All Cars
+        Ver Todos os Carros
       </Link>
     </div>
   );

@@ -1,29 +1,176 @@
 "use client";
 
-import { ChevronDown, Filter } from "lucide-react";
+import { useState } from "react";
+import { CarFilters } from "@/app/cars/page";
 
-export default function SearchFilters() {
+interface SearchFiltersProps {
+  onFilterChange: (filters: CarFilters) => void;
+}
+
+export default function SearchFilters({ onFilterChange }: SearchFiltersProps) {
+  const [filters, setFilters] = useState<CarFilters>({});
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const newFilters = {
+      ...filters,
+      [name]: value === "" ? undefined : value
+    };
+    setFilters(newFilters);
+    onFilterChange(newFilters);
+  };
+
+  const clearFilters = () => {
+    setFilters({});
+    onFilterChange({});
+  };
+
   return (
-    <div className="search-filters-container w-full p-[40px_24px] flex flex-col items-start gap-[30px] max-lg:p-[30px_20px] max-sm:p-[20px_16px]">
-      <div className="search-bar-wrapper w-full h-[98px] p-2.5 flex items-center gap-2.5 max-lg:flex-wrap max-sm:h-auto">
-        {/* Campo de pesquisa */}
-        <div className="search-input-container flex w-[calc(100%-350px)] h-[45px] px-2.5 items-center gap-2.5 rounded-lg border border-[#E4E4E7] max-lg:w-full">
+    <div className="w-full p-6 bg-white border-b border-[#D4D4D4]">
+      <div className="flex flex-wrap gap-4">
+        <div>
+          <label className="text-black block text-sm font-medium mb-1">Marca</label>
           <input
             type="text"
-            placeholder="Brand, model or city"
-            className="w-full h-full text-[#676773] font-inter text-sm outline-none"
+            name="brand"
+            value={filters.brand || ""}
+            onChange={handleChange}
+            className="text-black p-2 border rounded"
+            placeholder="Digite a marca"
           />
         </div>
 
-        {/* Botões Category e Filters */}
-        <div className="filters-container flex gap-2.5 max-sm:w-full max-sm:flex-col">
-          <button className="category-button flex w-[167px] h-[45px] px-2.5 justify-between items-center rounded-lg border border-[#E4E4E7] max-sm:w-full">
-            <span className="text-black font-inter text-sm">Category</span>
-            <ChevronDown className="w-5 h-5" />
-          </button>
-          <button className="filter-button flex w-[165px] h-[45px] px-2.5 items-center gap-2.5 rounded-lg border border-[#E4E4E7] max-sm:w-full">
-            <Filter className="w-5 h-5" />
-            <span className="text-black font-inter text-sm">Filters</span>
+        <div>
+          <label className="text-black block text-sm font-medium mb-1">Transmissão</label>
+          <select
+            name="transmission"
+            value={filters.transmission || ""}
+            onChange={handleChange}
+            className="text-black p-2 border rounded"
+          >
+            <option value="">Todos</option>
+            <option value="automatic">Automático</option>
+            <option value="manual">Manual</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-black block text-sm font-medium mb-1">Combustível</label>
+          <select
+            name="fuel"
+            value={filters.fuel || ""}
+            onChange={handleChange}
+            className="text-black p-2 border rounded"
+          >
+            <option value="">Todos</option>
+            <option value="gasoline">Gasolina</option>
+            <option value="diesel">Diesel</option>
+            <option value="electric">Elétrico</option>
+            <option value="hybrid">Híbrido</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-black block text-sm font-medium mb-1">Preço por dia</label>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              name="minPrice"
+              value={filters.minPrice || ""}
+              onChange={handleChange}
+              className="text-black p-2 border rounded w-24"
+              placeholder="Min"
+            />
+            <input
+              type="number"
+              name="maxPrice"
+              value={filters.maxPrice || ""}
+              onChange={handleChange}
+              className="text-black p-2 border rounded w-24"
+              placeholder="Max"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-black block text-sm font-medium mb-1">Ano</label>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              name="minYear"
+              value={filters.minYear || ""}
+              onChange={handleChange}
+              className="text-black p-2 border rounded w-24"
+              placeholder="Min"
+            />
+            <input
+              type="number"
+              name="maxYear"
+              value={filters.maxYear || ""}
+              onChange={handleChange}
+              className="text-black p-2 border rounded w-24"
+              placeholder="Max"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-black block text-sm font-medium mb-1">Assentos</label>
+          <input
+            type="number"
+            name="seats"
+            value={filters.seats || ""}
+            onChange={handleChange}
+            className="text-black p-2 border rounded w-24"
+            placeholder="Nº assentos"
+          />
+        </div>
+
+        <div>
+          <label className="text-black block text-sm font-medium mb-1">Cidade</label>
+          <input
+            type="text"
+            name="city"
+            value={filters.city || ""}
+            onChange={handleChange}
+            className="text-black p-2 border rounded"
+            placeholder="Digite a cidade"
+          />
+        </div>
+
+        <div>
+          <label className="text-black block text-sm font-medium mb-1">Estado</label>
+          <input
+            type="text"
+            name="state"
+            value={filters.state || ""}
+            onChange={handleChange}
+            className="text-black p-2 border rounded"
+            placeholder="Digite o estado"
+          />
+        </div>
+
+        <div>
+          <label className="text-black block text-sm font-medium mb-1">Disponibilidade</label>
+          <select
+            name="availability"
+            value={filters.availability || ""}
+            onChange={handleChange}
+            className="text-black p-2 border rounded"
+          >
+            <option value="">Todos</option>
+            <option value="available">Disponível</option>
+            <option value="rented">Alugado</option>
+            <option value="maintenance">Em manutenção</option>
+          </select>
+        </div>
+
+        <div className="flex items-end">
+          <button
+            onClick={clearFilters}
+            className="p-2 bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+          >
+            Limpar Filtros
           </button>
         </div>
       </div>
