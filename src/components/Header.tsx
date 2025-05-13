@@ -12,25 +12,25 @@ export default function Header() {
     try {
       await userService.logout();
     } catch (error) {
-      console.error('Error logging out:', error);
+      console.error("Error logging out:", error);
     }
   };
 
   return (
     <header className="flex w-full h-[120px] justify-center items-center bg-white border-b border-[#D4D4D4]">
       <div className="flex w-[1240px] h-[80px] justify-between items-center px-5">
+        {/* Logo da Navbar */}
         <Link href="/" className="flex items-center gap-2">
-          <div className="relative w-20 h-20">
-            <Image
-              src="https://res.cloudinary.com/teepublic/image/private/s--uy8uIxhe--/t_Resized%20Artwork/c_fit,g_north_west,h_1054,w_1054/co_ffffff,e_outline:53/co_ffffff,e_outline:inner_fill:53/co_bbbbbb,e_outline:3:1000/c_mpad,g_center,h_1260,w_1260/b_rgb:eeeeee/c_limit,f_auto,h_630,q_auto:good:420,w_630/v1561313766/production/designs/5142729_0.jpg"
-              alt="Rental Mobilistic Logo"
-              fill
-              className="object-contain"
-              priority
-            />
-          </div>
+          <Image
+            src="/RentalIcon.png" // Caminho para o logo na pasta public
+            alt="Rental Mobilistic Logo"
+            width={50}
+            height={50}
+            className="object-contain"
+            priority
+          />
           <span className="text-[#EA580C] font-geist text-xl font-black">
-            Hentai Mobilistic
+            Rental Mobilistic
           </span>
         </Link>
 
@@ -88,7 +88,7 @@ export default function Header() {
                   height={24}
                   className="object-contain"
                 />
-                {user.fullName || 'My Dashboard'}
+                {user.fullName || "My Dashboard"}
               </Link>
               <button
                 onClick={handleLogout}
