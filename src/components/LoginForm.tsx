@@ -20,7 +20,7 @@ export function LoginForm() {
 
     try {
       await userService.login(formData.email, formData.password);
-      router.push("/"); // Redireciona para a página inicial após o login
+      router.push("/cars"); // Redireciona para a página inicial após o login
     } catch (err: unknown) {
       console.error("Erro no login:", err);
       // Tratamento específico para erros do Firebase

@@ -2,8 +2,20 @@
 
 import Header from "../../components/Header";
 import { LoginForm } from "@/components/LoginForm";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
 
 export default function LoginPage() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user) {
+      router.push("/cars");
+    }
+  }, [user, router]);
+
   return (
     <div className="flex flex-col min-h-screen bg-white">
       <Header />

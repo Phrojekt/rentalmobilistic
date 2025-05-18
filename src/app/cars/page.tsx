@@ -35,9 +35,6 @@ export default function CarsPage() {
     <div className="flex flex-col min-h-screen bg-white">
       <Header />
       <main className="flex-1">
-        <div className="bg-[#F5F5F5] p-6">
-          <SearchBar onSearch={handleFilterChange} />
-        </div>
         <SearchFilters onFilterChange={handleFilterChange} />
         <CarGrid filters={filters} />
       </main>

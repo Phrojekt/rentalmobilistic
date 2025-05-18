@@ -43,32 +43,20 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
           Find the ideal car for you
         </h2>
         <form onSubmit={handleSubmit} className="flex w-full gap-4">
-          <div className="relative flex-1">
+            <div className="relative flex-1">
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="Procure por marca, cidade ou estado..."
+              placeholder="Search by brand, city or state..."
               className="text-black w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
             {isSearching && (
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-orange-500 border-t-transparent"></div>
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-orange-500 border-t-transparent"></div>
               </div>
             )}
-          </div>
-          <input
-            type="date"
-            value={pickupDate}
-            onChange={(e) => setPickupDate(e.target.value)}
-            className="text-black flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-          />
-          <input
-            type="date"
-            value={returnDate}
-            onChange={(e) => setReturnDate(e.target.value)}
-            className="text-black flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-          />
+            </div>
           <button
             type="submit"
             disabled={isSearching}

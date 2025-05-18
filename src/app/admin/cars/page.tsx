@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { carService } from "@/services/carService";
 import { cartService } from "@/services/cartService";
 import type { Car } from "@/services/carService";
@@ -15,10 +15,13 @@ type TabType = 'my-cars' | 'rented-cars';
 export default function AdminCarsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab");
+
   const [cars, setCars] = useState<Car[]>([]);
   const [rentedCars, setRentedCars] = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabType>('my-cars');
+  const [activeTab, setActiveTab] = useState<TabType>(tab as TabType || 'my-cars');
   useEffect(() => {
     async function loadUserCars() {
       if (authLoading) return; // Aguarda o carregamento da autenticação
@@ -112,7 +115,7 @@ export default function AdminCarsPage() {
         {car.location.city}, {car.location.state}
       </p>      <div className="flex flex-col gap-2">
         <p className="text-[#EA580C] font-bold">
-          R$ {car.pricePerDay.toLocaleString('pt-BR')}/dia
+          R$ {car.pricePerDay.toLocaleString('pt-BR')}/day
         </p>
         {car.availability === 'rented' && (
           <div className="flex flex-col gap-1">
@@ -213,7 +216,7 @@ export default function AdminCarsPage() {
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              Meus Carros
+              My Cars
             </button>
             <button
               onClick={() => setActiveTab('rented-cars')}
@@ -223,7 +226,7 @@ export default function AdminCarsPage() {
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              Carros Alugados
+              Rental Cars
             </button>
           </div>
           {activeTab === 'my-cars' && (
