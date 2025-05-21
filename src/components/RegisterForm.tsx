@@ -94,24 +94,28 @@ export function RegisterForm() {
             type: "text",
             name: "fullName",
             value: formData.fullName,
+            placeholder: "Seu nome completo",
           },
           {
             label: "Email",
             type: "email",
             name: "email",
             value: formData.email,
+            placeholder: "exemplo@email.com",
           },
           {
             label: "Password",
             type: "password",
             name: "password",
             value: formData.password,
+            placeholder: "********",
           },
           {
             label: "Confirm Password",
             type: "password",
             name: "confirmPassword",
             value: formData.confirmPassword,
+            placeholder: "********",
           },
         ].map((field) => (
           <div key={field.name} className="flex flex-col gap-2">
@@ -127,8 +131,9 @@ export function RegisterForm() {
               name={field.name}
               value={field.value}
               onChange={handleChange}
-              className="h-[41px] w-full rounded-lg border-[0.75px] border-[#676773] bg-[#F8FAFC] px-3"
+              className="h-[41px] w-full rounded-lg border-[0.75px] border-[#676773] bg-[#F8FAFC] px-3 placeholder-[#3F3F46] text-[#222] transition-colors placeholder:text-sm"
               required
+              placeholder={field.placeholder}
             />
           </div>
         ))}
@@ -136,12 +141,12 @@ export function RegisterForm() {
 
       <button
         type="submit"
-        className="h-[34px] w-full rounded bg-[#EA580C] text-white font-inter text-base font-bold"
+        className="h-[34px] w-full hover:cursor-pointer rounded bg-[#EA580C] text-white font-inter text-base font-bold transition-colors duration-200 hover:bg-[#c94a08] focus:bg-[#c94a08] active:bg-[#a53d06]"
       >
         Register
       </button>
 
-      <p className="text-center text-sm font-geist">
+      <p className="text-center text-black text-sm font-geist">
         By registering, you agree to our{" "}
         <Link href="#" className="font-bold underline">
           Terms of Service
@@ -153,7 +158,7 @@ export function RegisterForm() {
         .
       </p>
 
-      <p className="text-center text-sm font-geist">
+      <p className="text-center text-sm text-black font-geist">
         Already have an account?{" "}
         <Link href="/login" className="text-[#EA580C] underline cursor-pointer">
           Log in

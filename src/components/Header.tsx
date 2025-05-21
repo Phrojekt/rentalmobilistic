@@ -14,6 +14,8 @@ export default function Header() {
 
   const handleLogout = async () => {
     try {
+      localStorage.removeItem("rememberMe");
+      localStorage.removeItem("isLogged");
       await userService.logout();
     } catch (error) {
       console.error("Error logging out:", error);

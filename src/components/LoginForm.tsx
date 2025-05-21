@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { userService } from "@/services/userService";
@@ -14,13 +14,29 @@ export function LoginForm() {
     rememberMe: false,
   });
 
+  // Checa o remember-me ao montar
+  useEffect(() => {
+    const remembered = localStorage.getItem("rememberMe");
+    const isLogged = localStorage.getItem("isLogged");
+    if (remembered === "true" && isLogged === "true") {
+      router.push("/cars");
+    }
+  }, [router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
     try {
       await userService.login(formData.email, formData.password);
-      router.push("/cars"); // Redireciona para a página inicial após o login
+      if (formData.rememberMe) {
+        localStorage.setItem("rememberMe", "true");
+        localStorage.setItem("isLogged", "true");
+      } else {
+        localStorage.removeItem("rememberMe");
+        localStorage.removeItem("isLogged");
+      }
+      router.push("/cars");
     } catch (err: unknown) {
       console.error("Erro no login:", err);
       // Tratamento específico para erros do Firebase
@@ -89,8 +105,9 @@ export function LoginForm() {
             name="email"
             value={formData.email}
             onChange={handleChange}
-            className="h-[41px] w-full rounded-lg border-[0.75px] border-[#676773] bg-[#F8FAFC] px-3"
+            className="h-[41px] w-full rounded-lg border-[0.75px] border-[#676773] bg-[#F8FAFC] px-3 placeholder-[#3F3F46] text-[#222] transition-colors placeholder:text-sm"
             required
+            placeholder="Email"
           />
         </div>
 
@@ -107,8 +124,9 @@ export function LoginForm() {
             name="password"
             value={formData.password}
             onChange={handleChange}
-            className="h-[41px] w-full rounded-lg border-[0.75px] border-[#676773] bg-[#F8FAFC] px-3"
+            className="h-[41px] w-full rounded-lg border-[0.75px] border-[#676773] bg-[#F8FAFC] px-3 placeholder-[#3F3F46] text-[#222] transition-colors placeholder:text-sm"
             required
+            placeholder="Password"
           />
           <div className="flex justify-between items-center w-full py-2.5">
             <div className="flex items-center gap-2.5">
@@ -139,12 +157,12 @@ export function LoginForm() {
 
       <button
         type="submit"
-        className="h-[34px] w-full rounded bg-[#EA580C] text-white font-inter text-base font-bold"
+        className="h-[34px] w-full rounded hover:cursor-pointer bg-[#EA580C] hover:bg-[#c94a08] text-white font-inter text-base font-bold"
       >
         Login
       </button>
 
-      <p className="text-center text-sm font-geist">
+      <p className="text-center text-sm text-black font-geist">
         Don&apos;t have an account yet?{" "}
         <Link
           href="/register"
