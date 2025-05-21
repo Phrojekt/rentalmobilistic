@@ -22,18 +22,24 @@ export default function HowItWorks() {
 
   return (
     <div
-      className="flex w-full h-[474px] pt-10 pb-2.5 px-2.5 flex-col items-center gap-10 bg-[#F8FAFC] max-lg:h-auto"
+      className="flex w-full h-[474px] pt-10 pb-2.5 px-2.5 flex-col items-center gap-10 bg-[#F8FAFC] max-lg:h-auto max-sm:pb-10"
       id="how-it-works"
     >
-      <div className="flex px-[101px] flex-col justify-center items-center gap-0.5">
-        <h2 className="text-black font-geist text-3xl font-extrabold">
+      <div className="flex flex-col justify-center items-center gap-4 w-full">
+        <h2
+          className="text-black font-geist font-extrabold text-3xl text-center whitespace-nowrap max-sm:text-2xl"
+          style={{ width: "100%" }}
+        >
           How it Works
         </h2>
-        <p className="text-[#676773] font-inter text-xl font-normal">
+        <p
+          className="text-[#676773] font-geist text-lg font-medium text-center mx-auto max-w-[480px] w-[90%] max-sm:text-base"
+          style={{ lineHeight: 1.3 }}
+        >
           Renting or listing a car has never been easier
         </p>
       </div>
-      <div className="flex w-[1200px] h-[246px] p-2.5 justify-center items-center gap-[30px] max-lg:w-full max-lg:h-auto max-lg:flex-wrap">
+      <div className="flex w-full max-w-[1200px] h-[246px] p-2.5 justify-center items-center gap-[30px] max-lg:w-full max-lg:h-auto max-lg:flex-wrap">
         {steps.map((step, index) => (
           <div
             key={index}

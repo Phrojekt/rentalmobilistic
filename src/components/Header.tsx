@@ -10,6 +10,7 @@ export default function Header() {
   const { user, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null); // Novo ref para o botão
 
   const handleLogout = async () => {
     try {
@@ -19,10 +20,15 @@ export default function Header() {
     }
   };
 
-  // Fecha o menu ao clicar fora
+  // Fecha o menu ao clicar fora, mas ignora o botão do menu
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
         setMenuOpen(false);
       }
     }
@@ -110,34 +116,8 @@ export default function Header() {
           </div>
         ) : (
           <>
-            <nav className="flex items-center gap-4">
-              <Link
-                href="/"
-                className="text-black font-inter text-base font-semibold hover:text-[#EA580C] transition-colors"
-              >
-                Home
-              </Link>
-              <Link
-                href="/cars"
-                className="text-black font-inter text-base font-semibold hover:text-[#EA580C] transition-colors"
-              >
-                Cars
-              </Link>
-              <Link
-                href="#how-it-works"
-                className="text-black font-inter text-base font-semibold hover:text-[#EA580C] transition-colors"
-              >
-                How it Works
-              </Link>
-              <Link
-                href="#testimonials"
-                className="text-black font-inter text-base font-semibold hover:text-[#EA580C] transition-colors"
-              >
-                About Us
-              </Link>
-            </nav>
-            {/* Botões de login/register */}
-            <div className="flex items-center gap-2">
+            {/* Botões normais em telas md+ */}
+            <div className="hidden md:flex items-center gap-2 ml-auto">
               <Link
                 href="/login"
                 className="flex h-10 px-5 items-center gap-2 rounded-lg bg-white text-black font-geist text-base font-bold hover:bg-gray-50 transition-colors"
@@ -165,6 +145,79 @@ export default function Header() {
                 />
                 Register
               </Link>
+            </div>
+            {/* Hamburguer menu em telas pequenas */}
+            <div className="md:hidden ml-auto flex items-center relative">
+              <button
+                ref={buttonRef} // <-- Adicione o ref aqui
+                onClick={() => setMenuOpen((v) => !v)}
+                className={`p-2 rounded hover:bg-gray-100 transition-colors z-50 cursor-pointer`}
+                aria-label={menuOpen ? "Close menu" : "Open menu"}
+              >
+                {menuOpen ? (
+                  // Ícone X (fechar)
+                  <svg
+                    width="32"
+                    height="32"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                  >
+                    <line x1="6" y1="6" x2="18" y2="18" stroke="#EA580C" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="18" y1="6" x2="6" y2="18" stroke="#EA580C" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                ) : (
+                  // Ícone hamburguer
+                  <svg
+                    width="32"
+                    height="32"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                  >
+                    <rect y="4" width="24" height="2" rx="1" fill="#EA580C"/>
+                    <rect y="11" width="24" height="2" rx="1" fill="#EA580C"/>
+                    <rect y="18" width="24" height="2" rx="1" fill="#EA580C"/>
+                  </svg>
+                )}
+              </button>
+              {menuOpen && (
+                <div
+                  ref={menuRef}
+                  className="absolute top-[60px] right-0 w-80 bg-white rounded-3xl shadow-2xl border border-gray-200 z-40 py-8 px-6 flex flex-col gap-4 animate-fade-in transition-all"
+                  style={{ minWidth: 260 }}
+                >
+                  <Link
+                    href="/login"
+                    className="flex items-center gap-3 px-4 py-3 text-black font-geist text-lg font-bold rounded-lg hover:bg-gray-50 transition-colors"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <Image
+                      src="/Login_Icon.png"
+                      alt="Login Icon"
+                      width={26}
+                      height={26}
+                      className="object-contain"
+                    />
+                    Login
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="flex items-center gap-3 px-4 py-3 text-white font-geist text-lg font-bold rounded-lg bg-[#EA580C] hover:bg-[#D45207] transition-colors"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <Image
+                      src="/Add_user_WhiteIcon.png"
+                      alt="Register Icon"
+                      width={24}
+                      height={24}
+                      quality={100}
+                      className="object-contain"
+                    />
+                    Register
+                  </Link>
+                </div>
+              )}
             </div>
           </>
         )}

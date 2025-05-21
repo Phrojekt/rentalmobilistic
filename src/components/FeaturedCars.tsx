@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { carService } from "@/services/carService";
 import type { Car } from "@/services/carService";
+import CarCard from "./CarCard";
 
 export default function FeaturedCars() {
   const [cars, setCars] = useState<Car[]>([]);
@@ -33,10 +33,10 @@ export default function FeaturedCars() {
       <div className="flex w-full p-2.5 flex-col items-center gap-[20px]">
         <div className="flex w-full h-20 px-2.5 flex-col items-center gap-2.5">
           <h2 className="text-black font-geist text-4xl font-extrabold">
-            Carros em Destaque
+            Featured Cars
           </h2>
           <p className="text-[#676773] font-geist text-sm font-medium">
-            Carregando...
+            Loading...
           </p>
         </div>
       </div>
@@ -62,100 +62,29 @@ export default function FeaturedCars() {
 
   return (
     <div
-      className="flex w-full p-2.5 flex-col items-center gap-[20px] max-lg:h-auto"
+      className="flex w-full p-2.5 flex-col items-center gap-[40px] max-lg:h-auto py-16"
       id="featured-cars"
     >
-      <div className="flex w-full h-20 px-2.5 flex-col items-center gap-2.5">
-        <h2 className="text-black font-geist text-4xl font-extrabold">
-          Carros em Destaque
+      <div className="flex w-full h-20 px-2.5 flex-col items-center gap-4">
+        <h2 className="text-black font-geist font-extrabold text-3xl text-center whitespace-nowrap max-sm:text-2xl" style={{ width: "100%" }}>
+          Featured Cars
         </h2>
-        <p className="text-[#676773] font-geist text-sm font-medium">
-          Confira alguns dos melhores veículos disponíveis para aluguel
+        <p className="text-[#676773] font-geist text-md font-medium text-center">
+          Check out some of the best vehicles available for rent
         </p>
       </div>
 
       <div className="grid grid-cols-4 gap-[15px] w-full max-xl:grid-cols-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
         {cars.map((car) => (
-          <Link
-            href={`/cars/${car.id}`}
-            key={car.id}
-            className="flex w-[320px] h-[346px] flex-col items-center gap-2.5 rounded-lg border-[0.75px] border-[#D4D4D4] bg-white mx-auto hover:border-[#EA580C] transition-colors"
-          >
-            {/* Imagem do carro */}
-            <div className="w-full h-40 bg-[#B5B2B2] rounded-t-lg relative overflow-hidden">
-              {car.images && car.images[0] && (
-                <Image
-                  src={car.images[0]}
-                  alt={car.name}
-                  fill
-                  className="object-cover"
-                  sizes="320px"
-                />
-              )}
-            </div>
-
-            {/* Cabeçalho do carro */}
-            <div className="flex w-full h-[30px] px-5 justify-between items-center">
-              <h3 className="text-black font-geist text-base font-bold">
-                {car.name}
-              </h3>
-              <span className="text-[#EA580C] font-geist text-[10px] font-medium w-[60px] h-5 flex items-center justify-center rounded-[30px] bg-[#FFF7ED]">
-                R$ {car.pricePerDay.toLocaleString('pt-BR')}/dia
-              </span>
-            </div>
-
-            {/* Detalhes do carro */}
-            <div className="flex w-full h-[75px] px-5 flex-col justify-between items-start">
-              <div className="flex items-center gap-2 text-[#676773]">
-                <Image
-                  src="/gps_icon.png"
-                  alt="City Icon"
-                  width={14}
-                  height={14}
-                  className="object-contain"
-                />
-                <span className="font-inter text-sm font-medium">
-                  {car.location.city}, {car.location.state}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-[#676773]">
-                <Image
-                  src="/NumberofSeats_icon.png"
-                  alt="Seats Icon"
-                  width={14}
-                  height={14}
-                  className="object-contain"
-                />
-                <span className="font-inter text-sm font-medium">
-                  {car.seats} assentos
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-[#676773]">
-                <Image
-                  src="/Availability_icon.png"
-                  alt="Availability Icon"
-                  width={14}
-                  height={14}
-                  className="object-contain"
-                />
-                <span className="font-inter text-sm font-medium">
-                  {car.availability === "available"
-                    ? "Disponível"
-                    : car.availability === "rented"
-                    ? "Alugado"
-                    : "Em manutenção"}
-                </span>
-              </div>
-            </div>
-          </Link>
+          <CarCard key={car.id} car={car} href={`/cars/${car.id}`} />
         ))}
       </div>
 
       <Link
         href="/cars"
-        className="flex w-[230px] h-[54px] p-2.5 justify-center items-center gap-2.5 rounded-lg border-[0.4px] border-[#EA580C] bg-[#2B3344] text-white font-geist text-base font-bold hover:bg-[#3B4357] transition-colors"
+        className="flex w-[230px] h-[54px] mt-8 justify-center items-center gap-2.5 rounded-lg border border-black text-black hover:bg-[#EA580C] hover:text-white font-geist text-base font-bold hover:cursor-pointer transition-colors"
       >
-        Ver Todos os Carros
+        View all cars
       </Link>
     </div>
   );
