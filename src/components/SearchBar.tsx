@@ -15,8 +15,6 @@ interface SearchBarProps {
 
 export default function SearchBar({ onSearch }: SearchBarProps) {
   const [location, setLocation] = useState("");
-  const [pickupDate, setPickupDate] = useState("");
-  const [returnDate, setReturnDate] = useState("");
   const [isSearching, setIsSearching] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -25,8 +23,6 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
     
     const filters: SearchFilters = {
       location: location || undefined,
-      startDate: pickupDate ? new Date(pickupDate) : undefined,
-      endDate: returnDate ? new Date(returnDate) : undefined,
     };
     
     try {

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "../components/Header";
 interface SearchFilters {
@@ -29,8 +28,6 @@ export default function Home() {
     // Redireciona para a página de carros com os filtros
     router.push(`/cars?${searchParams.toString()}`);
   };
-  
-  const [showAlert, setShowAlert] = useState(true);
 
   return (
     <main className="bg-white text-gray-900">

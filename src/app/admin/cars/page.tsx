@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { carService } from "@/services/carService";
@@ -12,7 +12,7 @@ import Image from "next/image";
 // Tipos para as tabs
 type TabType = 'my-cars' | 'rented-cars';
 
-export default function AdminCarsPage() {
+function AdminCarsPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -242,5 +242,13 @@ export default function AdminCarsPage() {
         {renderTabContent()}
       </div>
     </div>
+  );
+}
+
+export default function AdminCarsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AdminCarsPageContent />
+    </Suspense>
   );
 }

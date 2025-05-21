@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import Header from "@/components/Header";
 import SearchFilters from "@/components/SearchFilters";
 import CarGrid from "@/components/CarGrid";
 import Footer from "@/components/Footer";
-import SearchBar from "@/components/SearchBar";
 
 export type CarFilters = {
   brand?: string;
@@ -25,18 +23,13 @@ export type CarFilters = {
 };
 
 export default function CarsPage() {
-  const [filters, setFilters] = useState<CarFilters>({});
-
-  const handleFilterChange = (newFilters: CarFilters) => {
-    setFilters(prev => ({...prev, ...newFilters}));
-  };
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
       <Header />
       <main className="flex-1">
-        <SearchFilters onFilterChange={handleFilterChange} />
-        <CarGrid filters={filters} />
+        <SearchFilters />
+        <CarGrid  />
       </main>
       <Footer />
     </div>

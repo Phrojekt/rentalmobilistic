@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import { carService } from "@/services/carService";
 import type { Car } from "@/services/carService";
 import type { CarFilters } from "@/app/cars/page";

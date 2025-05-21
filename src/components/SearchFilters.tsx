@@ -1,13 +1,9 @@
 "use client";
 
 import { ChevronDown, Filter } from "lucide-react";
-import { CarFilters } from "@/app/cars/page";
 
-type SearchFiltersProps = {
-  onFilterChange: (newFilters: CarFilters) => void;
-};
 
-export default function SearchFilters({ onFilterChange }: SearchFiltersProps) {
+export default function SearchFilters() {
   return (
     <div className="search-filters-container w-full p-[40px_24px] flex flex-col items-start gap-[30px] max-lg:p-[30px_20px] max-sm:p-[20px_16px]">
       <div className="search-bar-wrapper w-full h-[98px] p-2.5 flex items-center gap-2.5 max-lg:flex-wrap max-sm:h-auto">
