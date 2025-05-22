@@ -23,7 +23,12 @@ export default function CarGrid() {
   }, []);
 
   if (loading) return <div>Loading...</div>;
-  if (!cars.length) return <div>No cars found.</div>;
+  if (!cars.length)
+    return (
+      <div className="flex justify-center items-center w-full h-64">
+        <span className="font-bold text-black text-lg text-center w-full">No cars found.</span>
+      </div>
+    );
 
   return (
     <div className="grid grid-cols-4 gap-4">

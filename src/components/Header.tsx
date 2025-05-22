@@ -5,18 +5,21 @@ import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { userService } from "@/services/userService";
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation"; // Adicione este import
 
 export default function Header() {
   const { user, loading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null); // Novo ref para o botão
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const router = useRouter(); // Adicione esta linha
 
   const handleLogout = async () => {
     try {
       localStorage.removeItem("rememberMe");
       localStorage.removeItem("isLogged");
       await userService.logout();
+      router.push("/"); // Redireciona para a home após logout
     } catch (error) {
       console.error("Error logging out:", error);
     }

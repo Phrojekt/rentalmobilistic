@@ -15,7 +15,6 @@ export default function NewCarPage() {
 
   return (
     <div className="container mx-auto p-6">
-      <h1 className="text-black text-2xl font-bold mb-6">Adicionar Novo Carro</h1>
       <CarForm onSubmit={handleSubmit} />
     </div>
   );
