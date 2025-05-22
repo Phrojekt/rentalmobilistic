@@ -2,11 +2,12 @@
 
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { Car } from "@/services/carService";
 import { useAuth } from "@/hooks/useAuth";
 import { Switch } from "@headlessui/react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Image from "next/image";
 
 const CAR_FEATURES = [
   { id: "airConditioning", label: "Air conditioning" },
@@ -77,6 +78,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("basic-info");
 
+  // Fix 1: Add runtime validation using the schema
   const {
     register,
     handleSubmit,
@@ -110,6 +112,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
       features: [],
       ...initialData,
     },
+    resolver: zodResolver(carFormSchema) // Add this line to use the schema for validation
   });
 
   const images = watch("images");
@@ -127,6 +130,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
       images.map((img: string, i: number) => (i === idx ? value : img))
     );
 
+  // Fix 2: Replace 'any' with a more specific type
   async function submitHandler(data: CarFormType) {
     setError("");
     setLoading(true);
@@ -139,8 +143,9 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
         },
         ownerId: user?.uid || "",
       } as unknown as Omit<Car, "id" | "createdAt" | "updatedAt">);
-    } catch (err: any) {
-      setError(err?.message || "Erro ao salvar o carro");
+    } catch (err: unknown) { // Changed from any to unknown
+      const errorMessage = err instanceof Error ? err.message : "Erro ao salvar o carro";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -318,7 +323,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
               Select all the features that your car has. This helps renters find the right car for their needs.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-4">
-              {CAR_FEATURES.map((feature, idx) => (
+              {CAR_FEATURES.map((feature) => ( // Removed unused idx parameter
                 <label
                   key={feature.id}
                   className="inline-flex items-center space-x-2 text-sm text-gray-700"
@@ -556,12 +561,14 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                 <div className="flex flex-wrap gap-2 mt-2">
                   {images.map((img, idx) =>
                     img ? (
-                      <img
-                        key={idx}
-                        src={img}
-                        alt={`Carro ${idx + 1}`}
-                        className="w-24 h-16 object-cover rounded border"
-                      />
+                      <div key={idx} className="relative w-24 h-16">
+                        <Image
+                          src={img}
+                          alt={`Car ${idx + 1}`}
+                          fill
+                          className="object-cover rounded border"
+                        />
+                      </div>
                     ) : null
                   )}
                 </div>
