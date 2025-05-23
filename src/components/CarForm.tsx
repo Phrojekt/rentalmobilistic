@@ -77,6 +77,8 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("basic-info");
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Fix 1: Add runtime validation using the schema
   const {
@@ -498,27 +500,154 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
         {/* Photos */}
         {activeTab === "photos" && (
           <div className="space-y-6 border border-black rounded-lg p-6 bg-white">
-            <div>
-              <label className="text-black block text-sm font-medium">URLs das Imagens</label>
-              {images.map((image, idx) => (
-                <div key={idx} className="flex gap-2 mt-2">
-                  <input
-                    type="url"
-                    value={image}
-                    onChange={e => updateImage(idx, e.target.value)}
-                    className="text-black flex-1 rounded border border-gray-300 p-2"
-                  />
-                  <button type="button" onClick={() => removeImage(idx)} className="px-2 py-1 text-red-600">Remover</button>
-                </div>
-              ))}
-              <button type="button" onClick={addImage} className="mt-2 text-blue-600">+ Adicionar Imagem</button>
-              {errors.images && <span className="text-red-600 text-xs block">{errors.images.message as string}</span>}
+            <h2 className="text-black text-xl font-bold mb-2">Car Photos</h2>
+            <p className="text-gray-600 mb-6">
+              Upload high-quality photos of your car. Include exterior, interior, and any special features. Good photos increase your chances of getting rentals.
+            </p>
+            
+            {/* Upload Box Component */}
+            <div 
+              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-[#EA580C] transition-colors bg-gray-200"
+              onClick={() => document.getElementById('photo-upload')?.click()}
+            >
+              <div className="flex flex-col items-center justify-center">
+                {/* Better Upload Icon */}
+                <svg className="w-12 h-12 text-gray-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
+                </svg>
+                
+                <p className="mb-2 text-black">
+                  <span className="font-bold">Click to upload</span> or drag and drop
+                </p>
+                <p className="text-xs text-black">PNG, JPG or JPEG (max. 5MB per image)</p>
+                
+                {/* Hidden file input */}
+                <input 
+                  type="file" 
+                  id="photo-upload" 
+                  accept="image/png, image/jpeg, image/jpg"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        if (event.target?.result) {
+                          const imgUrl = event.target.result.toString();
+                          setValue("images", [...images, imgUrl]);
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }} 
+                />
+              </div>
             </div>
-            <div className="flex justify-between">
+            
+            {/* Upload Status Message */}
+            <div className="flex flex-col items-center justify-center mt-4 text-center">
+              {images.length === 0 ? (
+                <>
+                  <Image 
+                    src="/CarIcon.png" 
+                    alt="Car icon" 
+                    width={48} 
+                    height={32}
+                    quality={100}
+                    className="mb-2"
+                  />
+                  <span className="font-bold text-black">No photos uploaded yet</span>
+                  <p className="text-black font-normal text-sm mt-1">
+                    We recommend uploading at least 5 photos of your car
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Image 
+                    src="/CarIcon.png" 
+                    alt="Car icon" 
+                    width={48} 
+                    height={32}
+                    quality={100}
+                    className="mb-2"
+                  />
+                  <span className="font-bold text-black">{images.filter(img => img).length} photo{images.filter(img => img).length !== 1 ? 's' : ''} uploaded</span>
+                  <p className="text-black font-normal text-sm mt-1">
+                    We recommend uploading at least 5 photos of your car
+                  </p>
+                </>
+              )}
+            </div>
+            
+            {/* Preview of uploaded images */}
+            {images.filter(img => img).length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-6">
+                {images.map((img, idx) => 
+                  img ? (
+                    <div key={idx} className="relative group">
+                      <div className="aspect-w-16 aspect-h-9 relative h-24 cursor-pointer">
+                        <Image
+                          src={img}
+                          alt={`Car photo ${idx + 1}`}
+                          fill
+                          className="object-cover rounded-md cursor-pointer"
+                          onClick={() => {
+                            setCurrentImageIndex(idx);
+                            setShowImageModal(true);
+                          }}
+                        />
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => removeImage(idx)}
+                        className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-md group-hover:opacity-100 opacity-0 transition-opacity cursor-pointer hover:bg-gray-100"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : null
+                )}
+              </div>
+            )}
+            
+            {errors.images && <span className="text-red-600 text-xs block mt-2">{errors.images.message as string}</span>}
+            
+            {/* Photo Tips Section */}
+            <div className="mt-8 bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center text-[#EA580C] font-medium mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                Photo tips
+              </div>
+              <ul className="space-y-2 text-gray-700">
+                {/*
+                  Consider making this list dynamic based on actual tips data
+                  and possibly adding links to examples or further resources
+                */}
+                { [
+                  "Take photos in good lighting, preferably during daylight",
+                  "Include clear shots of the exterior from multiple angles",
+                  "Show the interior, including front and back seats",
+                  "Highlight special features or amenities",
+                  "Make sure your car is clean before taking photos"
+                ].map((tip, idx) => (
+                  <li key={idx} className="flex items-start">
+                    <span className="text-[#EA580C] mr-2 text-lg leading-none">•</span>
+                    <span>{tip}</span>
+                  </li>
+                )) }
+              </ul>
+            </div>
+            
+            {/* Navigation Buttons */}
+            <div className="flex justify-between mt-6">
               <button
                 type="button"
                 onClick={prevTab}
-                className="px-4 py-2 rounded border hover:cursor-pointer border-black text-black font-bold text-center"
+                className="px-4 py-2 rounded border border-black text-black font-bold text-center hover:bg-black hover:text-white cursor-pointer"
               >
                 Back to Availability
               </button>
@@ -589,6 +718,42 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
               >
                 {loading ? "Salvando..." : "Salvar"}
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Image Modal */}
+        {showImageModal && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowImageModal(false)}
+          >
+            <div 
+              className="relative max-w-4xl max-h-[90vh] w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Fechar botão */}
+              <button
+                type="button"
+                onClick={() => setShowImageModal(false)}
+                className="absolute top-2 right-2 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              
+              {/* Imagem */}
+              <div className="w-full h-full relative bg-white rounded-lg overflow-hidden">
+                <div className="relative w-full" style={{height: 'calc(90vh - 2rem)'}}>
+                  <Image
+                    src={images[currentImageIndex]}
+                    alt={`Car photo ${currentImageIndex + 1}`}
+                    fill
+                    className="object-contain"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         )}
