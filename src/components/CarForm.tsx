@@ -33,28 +33,28 @@ const CAR_FEATURES = [
 ];
 
 const carFormSchema = z.object({
-  name: z.string().min(2, "Nome obrigatório"),
-  brand: z.string().min(2, "Marca obrigatória"),
-  model: z.string().min(2, "Modelo obrigatório"),
-  year: z.coerce.number().min(1900, "Ano inválido"),
-  price: z.coerce.number().min(1, "Preço obrigatório"),
-  pricePerDay: z.coerce.number().min(1, "Preço por dia obrigatório"),
-  mileage: z.coerce.number().min(0, "Quilometragem obrigatória"),
-  category: z.string().min(2, "Categoria obrigatória"),
+  name: z.string().min(2, "Name is required"),
+  brand: z.string().min(2, "Brand is required"),
+  model: z.string().min(2, "Model is required"),
+  year: z.coerce.number().min(1900, "Invalid year"),
+  price: z.coerce.number().min(1, "Price is required"),
+  pricePerDay: z.coerce.number().min(1, "Price per day is required"),
+  mileage: z.coerce.number().min(0, "Mileage is required"),
+  category: z.string().min(2, "Category is required"),
   transmission: z.enum(["automatic", "manual"]),
   fuel: z.enum(["gasoline", "diesel", "electric", "hybrid"]),
-  seats: z.coerce.number().min(1, "Assentos obrigatórios"),
-  description: z.string().min(20, "Descrição deve ter pelo menos 20 caracteres"),
-  images: z.array(z.string().url("URL inválida")).min(1, "Adicione pelo menos uma imagem"),
-  locationCity: z.string().min(2, "Cidade obrigatória"),
+  seats: z.coerce.number().min(1, "Seats are required"),
+  description: z.string().min(20, "Description must have at least 20 characters"),
+  images: z.array(z.string().url("Invalid URL")).min(1, "Add at least one image"),
+  locationCity: z.string().min(2, "City is required"),
   availability: z.enum(["available", "rented", "maintenance"]),
   availabilitySchedule: z.enum(["always", "weekdays", "weekends", "custom"]),
   instantBooking: z.boolean(),
-  minRentalPeriod: z.coerce.number().min(1, "Período mínimo obrigatório"),
-  maxRentalPeriod: z.coerce.number().min(1, "Período máximo obrigatório"),
-  securityDeposit: z.coerce.number().min(0, "Depósito obrigatório"),
+  minRentalPeriod: z.coerce.number().min(1, "Minimum rental period is required"),
+  maxRentalPeriod: z.coerce.number().min(1, "Maximum rental period is required"),
+  securityDeposit: z.coerce.number().min(0, "Security deposit is required"),
   deliveryOptions: z.enum(["pickup", "delivery", "both"]),
-  features: z.array(z.string()).min(1, "Selecione pelo menos uma característica"),
+  features: z.array(z.string()).min(1, "Select at least one feature"),
 });
 
 type CarFormType = z.infer<typeof carFormSchema>;
@@ -130,6 +130,45 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
   async function submitHandler(data: CarFormType) {
     setError("");
     setLoading(true);
+
+    // Aguarda validação do react-hook-form
+    const isValid = Object.keys(errors).length === 0;
+    if (!isValid) {
+      // Mapeia campos para abas
+      const fieldToTab: Record<string, string> = {
+        brand: "basic-info",
+        model: "basic-info",
+        year: "basic-info",
+        pricePerDay: "basic-info",
+        locationCity: "basic-info",
+        category: "basic-info",
+        transmission: "basic-info",
+        fuel: "basic-info",
+        seats: "basic-info",
+        description: "basic-info",
+        features: "features",
+        availabilitySchedule: "availability",
+        minRentalPeriod: "availability",
+        maxRentalPeriod: "availability",
+        securityDeposit: "availability",
+        deliveryOptions: "availability",
+        images: "photos",
+      };
+      // Encontra o primeiro campo com erro
+      const firstErrorField = Object.keys(errors)[0];
+      if (firstErrorField && fieldToTab[firstErrorField]) {
+        setActiveTab(fieldToTab[firstErrorField]);
+        setTimeout(() => {
+          const el = document.querySelector(`[name="${firstErrorField}"]`);
+          if (el) {
+            (el as HTMLElement).focus();
+            el.classList.add("border-red-500", "focus:border-red-500");
+          }
+        }, 100);
+      }
+      return;
+    }
+
     try {
       await onSubmit({
         ...data,
@@ -139,8 +178,8 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
         },
         ownerId: user?.uid || "",
       } as unknown as Omit<Car, "id" | "createdAt" | "updatedAt">);
-    } catch (err: unknown) { // Changed from any to unknown
-      const errorMessage = err instanceof Error ? err.message : "Erro ao salvar o carro";
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Error saving the car";
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -403,10 +442,16 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
               <Switch
                 checked={watch("instantBooking")}
                 onChange={val => setValue("instantBooking", val)}
-                className={`${watch("instantBooking") ? "bg-[#EA580C]" : "bg-gray-300"} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none`}
+                className={`
+                  ${watch("instantBooking") ? "bg-[#EA580C]" : "bg-gray-300"}
+                  relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer
+                `}
               >
                 <span 
-                  className={`${watch("instantBooking") ? "translate-x-6" : "translate-x-1"} inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out`}
+                  className={`
+                    ${watch("instantBooking") ? "translate-x-6" : "translate-x-1"}
+                    inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out
+                  `}
                   aria-hidden="true"
                 />
               </Switch>
@@ -606,7 +651,14 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
               </div>
             )}
             
-            {errors.images && <span className="text-red-600 text-xs block mt-2">{errors.images.message as string}</span>}
+            {errors.images && (
+              <div className="relative">
+                <span className="text-red-600 text-xs block mt-2">{errors.images.message as string}</span>
+                <div className="absolute left-0 mt-1 bg-white border border-red-500 text-red-600 text-xs rounded px-2 py-1 shadow z-50 animate-fade-in">
+                  {errors.images.message as string}
+                </div>
+              </div>
+            )}
             
             {/* Photo Tips Section */}
             <div className="mt-8 bg-gray-50 p-4 rounded-lg">
@@ -659,49 +711,154 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
         {/* Preview */}
         {activeTab === "preview" && (
           <div className="space-y-6 border border-black rounded-lg p-6 bg-white">
-            <div className="border rounded-lg p-6">
-              <h2 className="text-black text-xl font-bold mb-4">Pré-visualização</h2>
-              <div className="mb-4">
-                <strong>Nome:</strong> {getValues("name")}<br />
-                <strong>Marca:</strong> {getValues("brand")}<br />
-                <strong>Modelo:</strong> {getValues("model")}<br />
-                <strong>Ano:</strong> {getValues("year")}<br />
-                <strong>Preço:</strong> R$ {getValues("price")}<br />
-                <strong>Preço por dia:</strong> R$ {getValues("pricePerDay")}<br />
-                <strong>Quilometragem:</strong> {getValues("mileage")}<br />
-                <strong>Transmissão:</strong> {getValues("transmission")}<br />
-                <strong>Combustível:</strong> {getValues("fuel")}<br />
-                <strong>Assentos:</strong> {getValues("seats")}<br />
-                <strong>Descrição:</strong> {getValues("description")}<br />
-                <strong>Cidade:</strong> {getValues("locationCity")}<br />
-                <strong>Disponibilidade:</strong> {getValues("availability")}<br />
-                <strong>Período mínimo:</strong> {getValues("minRentalPeriod")}<br />
-                <strong>Período máximo:</strong> {getValues("maxRentalPeriod")}<br />
-                <strong>Depósito:</strong> R$ {getValues("securityDeposit")}<br />
-                <strong>Opções de entrega:</strong> {getValues("deliveryOptions")}<br />
-                <strong>Características:</strong> {features.map(f => CAR_FEATURES.find(cf => cf.id === f)?.label).join(", ")}<br />
-                <strong>Imagens:</strong>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {images.map((img, idx) =>
-                    img ? (
-                      <div key={idx} className="relative w-24 h-16">
-                        <Image
-                          src={img}
-                          alt={`Car ${idx + 1}`}
-                          fill
-                          className="object-cover rounded border"
-                        />
+            <div className="rounded-lg border">
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-semibold text-black">Listing Preview</h2>
+                <p className="text-sm text-gray-500 mt-1">Review your car listing before submitting</p>
+              </div>
+
+              <div className="p-6">
+                {images.filter(img => img).length > 0 ? (
+                  <div className="mb-6 overflow-hidden rounded-lg">
+                    <div className="relative h-64 w-full">
+                      <Image
+                        src={images.filter(img => img)[0]}
+                        alt="Car preview"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-6 h-64 bg-slate-100 rounded-lg flex items-center justify-center">
+                    <Image 
+                      src="/CarIcon.png" 
+                      alt="Car icon" 
+                      width={64} 
+                      height={64}
+                      className="opacity-40"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-2xl font-bold text-black">
+                      {getValues("brand") || "Brand"} {getValues("model") || "Model"}{" "}
+                      {getValues("year") || "Year"}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-2 text-gray-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span>{getValues("locationCity") || "Location"}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="border rounded-lg shadow-sm">
+                      <div className="p-4">
+                        <div className="text-sm text-gray-500">Price</div>
+                        <div className="text-lg font-semibold text-black">${getValues("pricePerDay") || "0"}/day</div>
                       </div>
-                    ) : null
-                  )}
+                    </div>
+                    <div className="border rounded-lg shadow-sm">
+                      <div className="p-4">
+                        <div className="text-sm text-gray-500">Category</div>
+                        <div className="text-lg font-semibold text-black">{getValues("category") || "Not specified"}</div>
+                      </div>
+                    </div>
+                    <div className="border rounded-lg shadow-sm">
+                      <div className="p-4">
+                        <div className="text-sm text-gray-500">Transmission</div>
+                        <div className="text-lg font-semibold text-black">{getValues("transmission") === "automatic" ? "Automatic" : getValues("transmission") === "manual" ? "Manual" : "Not specified"}</div>
+                      </div>
+                    </div>
+                    <div className="border rounded-lg shadow-sm">
+                      <div className="p-4">
+                        <div className="text-sm text-gray-500">Seats</div>
+                        <div className="text-lg font-semibold text-black">{getValues("seats") || "0"}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium mb-2 text-black">Description</h4>
+                    <p className="text-gray-500">
+                      {getValues("description") || "No description provided."}
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium mb-2 text-black">Features</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {features.length > 0 ? (
+                        features.map((featureId) => {
+                          const feature = CAR_FEATURES.find((f) => f.id === featureId);
+                          return feature ? (
+                            <span key={featureId} className="inline-flex items-center rounded-full border border-gray-200 bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
+                              {feature.label}
+                            </span>
+                          ) : null;
+                        })
+                      ) : (
+                        <span className="text-gray-500">No features selected.</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium mb-2 text-black">Availability</h4>
+                    <p className="text-gray-500">
+                      {getValues("availabilitySchedule") === "always" && "Always available"}
+                      {getValues("availabilitySchedule") === "weekdays" && "Available on weekdays only"}
+                      {getValues("availabilitySchedule") === "weekends" && "Available on weekends only"}
+                      {getValues("availabilitySchedule") === "custom" && "Custom availability schedule"}
+                    </p>
+                    <p className="text-gray-500 mt-1">
+                      Rental period: {getValues("minRentalPeriod") || "1"} to {getValues("maxRentalPeriod") || "30"}{" "}
+                      days
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="flex justify-between">
+
+            <div className="flex items-start space-x-3 pt-4">
+              <div className="flex h-5 items-center">
+                <input
+                  id="terms"
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300 text-[#EA580C] focus:ring-[#EA580C]"
+                  onChange={(e) => {
+                    // In a real implementation, you would store this value
+                    // Terms checkbox state - currently visual only
+                  }}
+                />
+              </div>
+              <div className="space-y-1 leading-none">
+                <label htmlFor="terms" className="text-sm font-medium text-black">
+                  I agree to the terms and conditions
+                </label>
+                <p className="text-xs text-gray-500">
+                  By registering your car, you agree to our{" "}
+                  <a href="/terms" className="text-[#EA580C] underline hover:text-[#C04000]">
+                    terms of service
+                  </a>{" "}
+                  and{" "}
+                  <a href="/privacy" className="text-[#EA580C] underline hover:text-[#C04000]">
+                    privacy policy
+                  </a>.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-between mt-6">
               <button
                 type="button"
                 onClick={prevTab}
-                className="px-4 py-2 rounded border hover:cursor-pointer border-black text-black font-bold text-center"
+                className="px-4 py-2 rounded border border-black text-black font-bold text-center hover:bg-black hover:text-white cursor-pointer"
               >
                 Back to Photos
               </button>
@@ -710,7 +867,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                 disabled={loading}
                 className="bg-[#EA580C] cursor-pointer font-bold text-white px-4 py-2 rounded disabled:opacity-50"
               >
-                {loading ? "Salvando..." : "Salvar"}
+                {loading ? "Registering..." : "Register Car"}
               </button>
             </div>
           </div>
