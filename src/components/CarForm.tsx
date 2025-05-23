@@ -45,7 +45,12 @@ const carFormSchema = z.object({
   fuel: z.enum(["gasoline", "diesel", "electric", "hybrid"]),
   seats: z.coerce.number().min(1, "Seats are required"),
   description: z.string().min(20, "Description must have at least 20 characters"),
-  images: z.array(z.string().url("Invalid URL")).min(1, "Add at least one image"),
+  images: z.array(
+    z.string().refine(
+      val => val.startsWith("http") || val.startsWith("data:image"),
+      "Add at least one valid image"
+    )
+  ).min(1, "Add at least one image"),
   locationCity: z.string().min(2, "City is required"),
   availability: z.enum(["available", "rented", "maintenance"]),
   availabilitySchedule: z.enum(["always", "weekdays", "weekends", "custom"]),
@@ -79,6 +84,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
   const [activeTab, setActiveTab] = useState("basic-info");
   const [showImageModal, setShowImageModal] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [validationAlert, setValidationAlert] = useState(""); // Add validation alert state
 
   // Fix 1: Add runtime validation using the schema
   const {
@@ -102,7 +108,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
       fuel: "gasoline",
       seats: 5,
       description: "",
-      images: [""],
+      images: [],
       locationCity: "",
       availability: "available",
       availabilitySchedule: "always",
@@ -123,13 +129,16 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
   const removeImage = (idx: number) =>
     setValue(
       "images",
-      images.filter((_img: string, i: number) => i !== idx)
+      images.filter((img, i) => i !== idx && img)
     );
 
   // Fix 2: Replace 'any' with a more specific type
   async function submitHandler(data: CarFormType) {
     setError("");
     setLoading(true);
+
+    // Filtra imagens vazias antes de enviar
+    data.images = data.images.filter(img => img);
 
     // Aguarda validação do react-hook-form
     const isValid = Object.keys(errors).length === 0;
@@ -186,11 +195,92 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
     }
   }
 
-  function nextTab() {
+  // Add validation function for each tab
+  const validateCurrentTab = async () => {
+    const currentValues = getValues();
+    const fieldsByTab = {
+      "basic-info": ["brand", "model", "year", "pricePerDay", "locationCity", "category", "transmission", "fuel", "seats", "description"],
+      "features": ["features"],
+      "availability": ["availabilitySchedule", "minRentalPeriod", "maxRentalPeriod", "securityDeposit", "deliveryOptions"],
+      "photos": ["images"]
+    };
+
+    const fieldsToValidate = fieldsByTab[activeTab as keyof typeof fieldsByTab] || [];
+    const emptyFields: string[] = [];
+    const fieldLabels: Record<string, string> = {
+      brand: "Brand",
+      model: "Model", 
+      year: "Year",
+      pricePerDay: "Price per Day",
+      locationCity: "Location",
+      category: "Category",
+      transmission: "Transmission",
+      fuel: "Fuel",
+      seats: "Number of Seats",
+      description: "Description",
+      features: "Features",
+      availabilitySchedule: "Availability Schedule",
+      minRentalPeriod: "Minimum Rental Period",
+      maxRentalPeriod: "Maximum Rental Period", 
+      securityDeposit: "Security Deposit",
+      deliveryOptions: "Delivery Options",
+      images: "Images"
+    };
+
+    // Check each field for this tab
+    for (const field of fieldsToValidate) {
+      const value = currentValues[field as keyof CarFormType];
+      
+      if (field === "features" && (!value || (Array.isArray(value) && value.length === 0))) {
+        emptyFields.push(field);
+      } else if (field === "images" && (!value || (Array.isArray(value) && value.filter(img => img).length === 0))) {
+        emptyFields.push(field);
+      } else if (field !== "features" && field !== "images" && (!value || value === "" || value === 0)) {
+        emptyFields.push(field);
+      }
+    }
+
+    if (emptyFields.length > 0) {
+      // Show validation alert
+      const fieldNames = emptyFields.map(field => fieldLabels[field]).join(", ");
+      setValidationAlert(`Please fill in the following required fields: ${fieldNames}`);
+      
+      // Add red border to empty fields
+      emptyFields.forEach(field => {
+        setTimeout(() => {
+          const element = document.querySelector(`[name="${field}"]`) || 
+                        document.querySelector(`input[value="${field}"]`) ||
+                        document.querySelector(`#${field}`);
+          if (element) {
+            element.classList.add("!border-red-500", "!focus:border-red-500");
+            // Remove red border after 5 seconds
+            setTimeout(() => {
+              element.classList.remove("!border-red-500", "!focus:border-red-500");
+            }, 5000);
+          }
+        }, 100);
+      });
+
+      return false;
+    }
+
+    setValidationAlert("");
+    return true;
+  };
+
+  // Update nextTab function
+  async function nextTab() {
+    const isValid = await validateCurrentTab();
+    if (!isValid) {
+      return;
+    }
+    
     const idx = TABS.findIndex(t => t.key === activeTab);
     if (idx < TABS.length - 1) setActiveTab(TABS[idx + 1].key);
   }
+
   function prevTab() {
+    setValidationAlert(""); // Clear validation alert when going back
     const idx = TABS.findIndex(t => t.key === activeTab);
     if (idx > 0) setActiveTab(TABS[idx - 1].key);
   }
@@ -203,6 +293,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
           Fill out the details below to list your car on our platform and start earning
         </p>
       </div>
+      
       {/* Container cinza apenas para as abas */}
       <div className="flex justify-center">
         <div className="bg-gray-100 rounded-lg px-2 md:px-6 py-4 mb-0 relative w-full max-w-6xl overflow-x-auto">
@@ -219,7 +310,10 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                   hover:cursor-pointer`
                 }
                 style={activeTab === tab.key ? { position: "relative", top: "0px" } : {}}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => {
+                  setValidationAlert(""); // Clear validation alert when switching tabs
+                  setActiveTab(tab.key);
+                }}
               >
                 {tab.label}
               </button>
@@ -227,11 +321,22 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
           </div>
         </div>
       </div>
+
       {/* Formulário fora do container cinza */}
       <form onSubmit={handleSubmit(submitHandler)} className="space-y-6 px-2 md:px-6 pt-6 max-w-6xl mx-auto">
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
             {error}
+          </div>
+        )}
+
+        {/* Add validation alert */}
+        {validationAlert && (
+          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded flex items-center">
+            <svg className="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            {validationAlert}
           </div>
         )}
 
@@ -242,12 +347,12 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
             {/* Brand - Model */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-black block text-sm font-medium">Brand</label>
+                <label className="text-black block text-sm font-medium">Brand *</label>
                 <input {...register("brand")} className="text-black mt-1 block w-full rounded border border-gray-300 p-2" />
                 {errors.brand && <span className="text-red-600 text-xs">{errors.brand.message}</span>}
               </div>
               <div>
-                <label className="text-black block text-sm font-medium">Model</label>
+                <label className="text-black block text-sm font-medium">Model *</label>
                 <input {...register("model")} className="text-black mt-1 block w-full rounded border border-gray-300 p-2" />
                 {errors.model && <span className="text-red-600 text-xs">{errors.model.message}</span>}
               </div>
@@ -255,19 +360,19 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
             {/* Year - Price per Day */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-black block text-sm font-medium">Year</label>
+                <label className="text-black block text-sm font-medium">Year *</label>
                 <input type="number" {...register("year")} className="text-black mt-1 block w-full rounded border border-gray-300 p-2" />
                 {errors.year && <span className="text-red-600 text-xs">{errors.year.message}</span>}
               </div>
               <div>
-                <label className="text-black block text-sm font-medium">Price per Day</label>
+                <label className="text-black block text-sm font-medium">Price per Day *</label>
                 <input type="number" {...register("pricePerDay")} className="text-black mt-1 block w-full rounded border border-gray-300 p-2" />
                 {errors.pricePerDay && <span className="text-red-600 text-xs">{errors.pricePerDay.message}</span>}
               </div>
             </div>
             {/* Location */}
             <div>
-              <label className="text-black block text-sm font-medium">Location</label>
+              <label className="text-black block text-sm font-medium">Location *</label>
               <input
                 {...register("locationCity")}
                 placeholder="City"
@@ -282,7 +387,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
             {/* Category - Transmission - Fuel */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="text-black block text-sm font-medium">Category</label>
+                <label className="text-black block text-sm font-medium">Category *</label>
                 <select {...register("category")} className="text-black mt-1 block w-full rounded border border-gray-300 p-2">
                   <option value="">Select</option>
                   <option value="Sedan">Sedan</option>
@@ -297,7 +402,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                 {errors.category && <span className="text-red-600 text-xs">{errors.category.message}</span>}
               </div>
               <div>
-                <label className="text-black block text-sm font-medium">Transmission</label>
+                <label className="text-black block text-sm font-medium">Transmission *</label>
                 <select {...register("transmission")} className="text-black mt-1 block w-full rounded border border-gray-300 p-2">
                   <option value="">Select</option>
                   <option value="automatic">Automatic</option>
@@ -306,7 +411,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                 {errors.transmission && <span className="text-red-600 text-xs">{errors.transmission.message}</span>}
               </div>
               <div>
-                <label className="text-black block text-sm font-medium">Fuel</label>
+                <label className="text-black block text-sm font-medium">Fuel *</label>
                 <select {...register("fuel")} className="text-black mt-1 block w-full rounded border border-gray-300 p-2">
                   <option value="">Select</option>
                   <option value="gasoline">Gasoline</option>
@@ -319,13 +424,13 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
             </div>
             {/* Number of Seats */}
             <div>
-              <label className="text-black block text-sm font-medium">Number of Seats</label>
+              <label className="text-black block text-sm font-medium">Number of Seats *</label>
               <input type="number" {...register("seats")} className="text-black mt-1 block w-full rounded border border-gray-300 p-2" />
               {errors.seats && <span className="text-red-600 text-xs">{errors.seats.message}</span>}
             </div>
             {/* Description */}
             <div>
-              <label className="text-black block text-sm font-medium">Description</label>
+              <label className="text-black block text-sm font-medium">Description *</label>
               <textarea {...register("description")} className="text-black mt-1 block w-full rounded border border-gray-300 p-2" rows={4} />
               {errors.description && <span className="text-red-600 text-xs">{errors.description.message}</span>}
             </div>
@@ -355,10 +460,10 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
           <div className="space-y-6 border border-black rounded-lg p-6 bg-white">
             <h2 className="text-black text-xl font-bold mb-2">Car Features</h2>
             <p className="text-gray-600 mb-4">
-              Select all the features that your car has. This helps renters find the right car for their needs.
+              Select all the features that your car has. This helps renters find the right car for their needs. *
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-4">
-              {CAR_FEATURES.map((feature) => ( // Removed unused idx parameter
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-4" id="features">
+              {CAR_FEATURES.map((feature) => (
                 <label
                   key={feature.id}
                   className="inline-flex items-center space-x-2 text-sm text-gray-700"
@@ -406,7 +511,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
             {/* When is your car available for rent? */}
             <div className="mb-4">
               <label className="text-black block text-sm font-medium mb-2">
-                When is your car available for rent?
+                When is your car available for rent? *
               </label>
               <div className="space-y-2">
                 <label className="text-black flex items-center gap-2">
@@ -423,7 +528,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                 </label>
                 <label className="text-black flex items-center gap-2">
                   <input type="radio" value="custom" {...register("availabilitySchedule")} className="accent-[#EA580C]" />
-                  Custom schedule (you’ll set this later)
+                  Custom schedule (you'll set this later)
                 </label>
               </div>
               {errors.availabilitySchedule && (
@@ -438,7 +543,6 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                   Allow renters to book your car instantly without requiring your approval.
                 </div>
               </div>
-              {/* Fixed Switch Headless UI */}
               <Switch
                 checked={watch("instantBooking")}
                 onChange={val => setValue("instantBooking", val)}
@@ -459,7 +563,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
             {/* Min/Max Rental Period */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-black block text-sm font-medium">Minimum rental period (days)</label>
+                <label className="text-black block text-sm font-medium">Minimum rental period (days) *</label>
                 <input
                   type="number"
                   {...register("minRentalPeriod")}
@@ -471,7 +575,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                 )}
               </div>
               <div>
-                <label className="text-black block text-sm font-medium">Maximum rental period (days)</label>
+                <label className="text-black block text-sm font-medium">Maximum rental period (days) *</label>
                 <input
                   type="number"
                   {...register("maxRentalPeriod")}
@@ -485,7 +589,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
             </div>
             {/* Security Deposit */}
             <div>
-              <label className="text-black block text-sm font-medium">Security deposit amount ($)</label>
+              <label className="text-black block text-sm font-medium">Security deposit amount ($) *</label>
               <input
                 type="number"
                 {...register("securityDeposit")}
@@ -498,7 +602,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
             </div>
             {/* Delivery Options */}
             <div className="mt-4">
-              <label className="text-black block text-sm font-medium mb-2">Delivery Options</label>
+              <label className="text-black block text-sm font-medium mb-2">Delivery Options *</label>
               <div className="space-y-2">
                 <label className="text-black flex items-center gap-2">
                   <input type="radio" value="pickup" {...register("deliveryOptions")} className="accent-[#EA580C]" />
@@ -541,7 +645,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
           <div className="space-y-6 border border-black rounded-lg p-6 bg-white">
             <h2 className="text-black text-xl font-bold mb-2">Car Photos</h2>
             <p className="text-gray-600 mb-6">
-              Upload high-quality photos of your car. Include exterior, interior, and any special features. Good photos increase your chances of getting rentals.
+              Upload high-quality photos of your car. Include exterior, interior, and any special features. Good photos increase your chances of getting rentals. *
             </p>
             
             {/* Upload Box Component */}
@@ -550,7 +654,6 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
               onClick={() => document.getElementById('photo-upload')?.click()}
             >
               <div className="flex flex-col items-center justify-center">
-                {/* Better Upload Icon */}
                 <svg className="w-12 h-12 text-gray-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
                 </svg>
@@ -560,7 +663,6 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                 </p>
                 <p className="text-xs text-black">PNG, JPG or JPEG (max. 5MB per image)</p>
                 
-                {/* Hidden file input */}
                 <input 
                   type="file" 
                   id="photo-upload" 
@@ -573,7 +675,8 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                       reader.onload = (event) => {
                         if (event.target?.result) {
                           const imgUrl = event.target.result.toString();
-                          setValue("images", [...images, imgUrl]);
+                          // Ao adicionar uma imagem:
+                          setValue("images", [...images.filter(img => img), imgUrl]);
                         }
                       };
                       reader.readAsDataURL(file);
@@ -664,7 +767,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
             <div className="mt-8 bg-gray-50 p-4 rounded-lg">
               <div className="flex items-center text-[#EA580C] font-medium mb-3">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-4 4a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
                 Photo tips
               </div>
