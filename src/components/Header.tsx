@@ -7,8 +7,13 @@ import { userService } from "@/services/userService";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation"; // Adicione este import
 
+type User = {
+  fullName?: string;
+  // add other user properties if needed
+};
+
 export default function Header() {
-  const { user, loading } = useAuth();
+  const { user, loading } = useAuth() as { user: User | null, loading: boolean };
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -81,7 +86,7 @@ export default function Header() {
               >
                 <span className="w-[30px] h-[30px] rounded-full bg-[#EA580C] mr-2"></span>
                 <span className="font-inter font-semibold text-black">
-                  {user.fullName || "User"}
+                  {(user as User).fullName || "User"}
                 </span>
               </button>
               {menuOpen && (
@@ -165,7 +170,7 @@ export default function Header() {
                   <div className="flex items-center gap-3 mb-4 pb-4 border-b">
                     <span className="w-[30px] h-[30px] rounded-full bg-[#EA580C]"></span>
                     <span className="font-inter font-semibold text-black truncate">
-                      {user.fullName || "User"}
+                      {(user as User).fullName || "User"}
                     </span>
                   </div>
                   {/* Menu Options */}
@@ -271,38 +276,82 @@ export default function Header() {
               {menuOpen && (
                 <div
                   ref={menuRef}
-                  className="absolute top-[60px] right-0 w-80 bg-white rounded-3xl shadow-2xl border border-gray-200 z-40 py-8 px-6 flex flex-col gap-4 animate-fade-in transition-all"
+                  className="fixed inset-0 top-[80px] right-0 w-full h-[calc(100vh-80px)] bg-white z-40 flex flex-col gap-4 animate-fade-in transition-all overflow-y-auto"
                   style={{ minWidth: 260 }}
                 >
-                  <Link
-                    href="/login"
-                    className="flex items-center gap-3 px-4 py-3 text-black font-geist text-lg font-bold rounded-lg hover:bg-gray-50 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <Image
-                      src="/Login_Icon.png"
-                      alt="Login Icon"
-                      width={26}
-                      height={26}
-                      className="object-contain"
-                    />
-                    Login
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="flex items-center gap-3 px-4 py-3 text-white font-geist text-lg font-bold rounded-lg bg-[#EA580C] hover:bg-[#D45207] transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <Image
-                      src="/Add_user_WhiteIcon.png"
-                      alt="Register Icon"
-                      width={24}
-                      height={24}
-                      quality={100}
-                      className="object-contain"
-                    />
-                    Register
-                  </Link>
+                  <div className="w-full max-w-[400px] mx-auto py-8 px-6 flex flex-col gap-4">
+                    {/* User Info (if logged in) */}
+                    {user ? (
+                      <>
+                        <div className="flex items-center gap-3 mb-4 pb-4 border-b">
+                          <span className="w-[30px] h-[30px] rounded-full bg-[#EA580C]"></span>
+                          <span className="font-inter font-semibold text-black truncate">
+                            {(user as User).fullName || "User"}
+                          </span>
+                        </div>
+                        <Link
+                          href="/admin/cars"
+                          className="flex items-center gap-3 px-4 py-3 text-black font-geist text-lg font-bold rounded-lg hover:bg-gray-50 transition-colors"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          Dashboard | My Cars
+                        </Link>
+                        <Link
+                          href="/admin/cars/new"
+                          className="flex items-center gap-3 px-4 py-3 text-black font-geist text-lg font-bold rounded-lg hover:bg-gray-50 transition-colors"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          Register New Car
+                        </Link>
+                        <Link
+                          href={{ pathname: "/admin/cars", query: { tab: "rented-cars" } }}
+                          className="flex items-center gap-3 px-4 py-3 text-black font-geist text-lg font-bold rounded-lg hover:bg-gray-50 transition-colors"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          My Rentals
+                        </Link>
+                        <div className="border-t my-2" />
+                        <button
+                          onClick={handleLogout}
+                          className="block cursor-pointer w-full text-left px-4 py-2 text-red-600 font-inter text-base font-semibold hover:bg-gray-50 transition-colors"
+                        >
+                          Logout
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          href="/login"
+                          className="flex items-center gap-3 px-4 py-3 text-black font-geist text-lg font-bold rounded-lg hover:bg-gray-50 transition-colors"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <Image
+                            src="/Login_Icon.png"
+                            alt="Login Icon"
+                            width={26}
+                            height={26}
+                            className="object-contain"
+                          />
+                          Login
+                        </Link>
+                        <Link
+                          href="/register"
+                          className="flex items-center gap-3 px-4 py-3 text-white font-geist text-lg font-bold rounded-lg bg-[#EA580C] hover:bg-[#D45207] transition-colors"
+                          onClick={() => setMenuOpen(false)}
+                        >
+                          <Image
+                            src="/Add_user_WhiteIcon.png"
+                            alt="Register Icon"
+                            width={24}
+                            height={24}
+                            quality={100}
+                            className="object-contain"
+                          />
+                          Register
+                        </Link>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

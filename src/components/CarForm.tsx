@@ -831,7 +831,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                   id="terms"
                   type="checkbox"
                   className="h-4 w-4 rounded border-gray-300 text-[#EA580C] focus:ring-[#EA580C]"
-                  onChange={(e) => {
+                  onChange={() => {
                     // In a real implementation, you would store this value
                     // Terms checkbox state - currently visual only
                   }}
