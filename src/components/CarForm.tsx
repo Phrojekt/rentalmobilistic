@@ -120,16 +120,10 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
   const images = watch("images");
   const features = watch("features");
 
-  const addImage = () => setValue("images", [...images, ""]);
   const removeImage = (idx: number) =>
     setValue(
       "images",
       images.filter((_img: string, i: number) => i !== idx)
-    );
-  const updateImage = (idx: number, value: string) =>
-    setValue(
-      "images",
-      images.map((img: string, i: number) => (i === idx ? value : img))
     );
 
   // Fix 2: Replace 'any' with a more specific type
