@@ -528,7 +528,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                 </label>
                 <label className="text-black flex items-center gap-2">
                   <input type="radio" value="custom" {...register("availabilitySchedule")} className="accent-[#EA580C]" />
-                  Custom schedule (you'll set this later)
+                  Custom schedule (you&apos;ll set this later)
                 </label>
               </div>
               {errors.availabilitySchedule && (
