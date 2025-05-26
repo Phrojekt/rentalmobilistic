@@ -19,6 +19,7 @@ import {
 } from 'firebase/firestore';
 import { FirebaseError } from 'firebase/app';
 import { db } from '../lib/firebase';
+import { imageService } from './imageService';
 
 export interface Car {
   id: string;
@@ -78,14 +79,19 @@ export const carService = {
     try {
       const carsRef = collection(db, 'cars');
       const newCarRef = doc(carsRef);
+      const carId = newCarRef.id;
+
+      // Upload images to Imgur and get their URLs
+      const imageUrls = await imageService.uploadImages(carData.images || []);
 
       // Garantir que features seja sempre um array
       const features = Array.isArray(carData.features) ? carData.features : [];
 
       const car: Car = {
         ...carData,
+        images: imageUrls, // Use the Imgur URLs
         features,
-        id: newCarRef.id,
+        id: carId,
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -124,6 +130,18 @@ export const carService = {
   async updateCar(carId: string, data: Partial<Car>): Promise<void> {
     try {
       const carRef = doc(db, 'cars', carId);
+      
+      // If there are images in the update, process them
+      if (data.images && Array.isArray(data.images)) {
+        // Filtra imagens vazias e faz upload apenas das novas (base64)
+        const validImages = data.images.filter(img => img);
+        const imageUrls = await imageService.uploadImages(validImages);
+        data = {
+          ...data,
+          images: imageUrls
+        };
+      }
+      
       await updateDoc(carRef, {
         ...data,
         updatedAt: new Date()
@@ -155,6 +173,8 @@ export const carService = {
   // Delete car
   async deleteCar(carId: string): Promise<void> {
     try {
+      // Since we're using Imgur, we don't need to delete the images
+      // They will remain on Imgur but won't be referenced anywhere
       await deleteDoc(doc(db, 'cars', carId));
     } catch (error: unknown) {
       if (error instanceof FirebaseError || error instanceof FirestoreError) {
@@ -164,7 +184,9 @@ export const carService = {
       }
       throw error;
     }
-  },  // Get rental information for a car
+  },
+
+  // Get rental information for a car
   async getCarRentalInfo(car: Car): Promise<Car> {
     try {
       if (car.availability === 'rented') {
@@ -193,7 +215,9 @@ export const carService = {
       console.error('Error in getCarRentalInfo:', error);
       return car;
     }
-  },  // Get all cars with filters
+  },
+
+  // Get all cars with filters
   async getCars(filters?: {
     brand?: string;
     transmission?: 'manual' | 'automatic';

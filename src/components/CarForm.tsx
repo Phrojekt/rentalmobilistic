@@ -33,25 +33,22 @@ const CAR_FEATURES = [
 ];
 
 const carFormSchema = z.object({
-  name: z.string().min(2, "Name is required"),
   brand: z.string().min(2, "Brand is required"),
   model: z.string().min(2, "Model is required"),
-  year: z.coerce.number().min(1900, "Invalid year"),
-  price: z.coerce.number().min(1, "Price is required"),
+  year: z.coerce.number().min(1900, "Year must be at least 1900"),
   pricePerDay: z.coerce.number().min(1, "Price per day is required"),
-  mileage: z.coerce.number().min(0, "Mileage is required"),
-  category: z.string().min(2, "Category is required"),
+  locationCity: z.string().min(2, "City is required"),
+  category: z.string().min(1, "Category is required"),
   transmission: z.enum(["automatic", "manual"]),
   fuel: z.enum(["gasoline", "diesel", "electric", "hybrid"]),
-  seats: z.coerce.number().min(1, "Seats are required"),
-  description: z.string().min(20, "Description must have at least 20 characters"),
+  seats: z.coerce.number().min(1, "Number of seats is required"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
   images: z.array(
     z.string().refine(
       val => val.startsWith("http") || val.startsWith("data:image"),
       "Add at least one valid image"
     )
   ).min(1, "Add at least one image"),
-  locationCity: z.string().min(2, "City is required"),
   availability: z.enum(["available", "rented", "maintenance"]),
   availabilitySchedule: z.enum(["always", "weekdays", "weekends", "custom"]),
   instantBooking: z.boolean(),
@@ -181,8 +178,12 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
     try {
       await onSubmit({
         ...data,
+        name: `${data.brand} ${data.model}`,
+        price: data.pricePerDay * 30, // Preço mensal estimado
+        mileage: 0, // Mileage inicial
         location: {
           city: data.locationCity,
+          state: "", // Estado será adicionado depois
           country: "Brasil",
         },
         ownerId: user?.uid || "",
@@ -847,16 +848,8 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-2xl font-bold text-black">
-                      {getValues("brand") || "Brand"} {getValues("model") || "Model"}{" "}
-                      {getValues("year") || "Year"}
+                      {getValues("brand")} {getValues("model")}
                     </h3>
-                    <div className="flex items-center gap-2 mt-2 text-gray-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      <span>{getValues("locationCity") || "Location"}</span>
-                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -968,9 +961,19 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-[#EA580C] cursor-pointer font-bold text-white px-4 py-2 rounded disabled:opacity-50"
+                className="bg-[#EA580C] hover:cursor-pointer text-white px-4 py-2 rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Registering..." : "Register Car"}
+                {loading ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Registering car...
+                  </span>
+                ) : (
+                  'Register Car'
+                )}
               </button>
             </div>
           </div>
