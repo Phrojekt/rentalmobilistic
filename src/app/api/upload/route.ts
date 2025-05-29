@@ -4,6 +4,11 @@ import { NextRequest, NextResponse } from 'next/server';
 async function uploadWithRetry(image: string, retries = 3, timeout = 30000): Promise<Response> {
   let lastError: Error | null = null;
   
+  const clientId = process.env.IMGUR_CLIENT_ID || process.env.NEXT_PUBLIC_IMGUR_CLIENT_ID;
+  if (!clientId) {
+    throw new Error('Imgur Client ID is not configured');
+  }
+
   for (let i = 0; i < retries; i++) {
     try {
       const controller = new AbortController();
@@ -12,7 +17,7 @@ async function uploadWithRetry(image: string, retries = 3, timeout = 30000): Pro
       const response = await fetch('https://api.imgur.com/3/image', {
         method: 'POST',
         headers: {
-          Authorization: `Client-ID ${process.env.NEXT_PUBLIC_IMGUR_CLIENT_ID}`,
+          Authorization: `Client-ID ${clientId}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
