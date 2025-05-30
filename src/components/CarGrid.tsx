@@ -26,15 +26,19 @@ export default function CarGrid() {
   if (!cars.length)
     return (
       <div className="flex justify-center items-center w-full h-64">
-        <span className="font-bold text-black text-lg text-center w-full">No cars found.</span>
+        <span className="font-bold text-black text-lg text-center w-full">
+          No cars found.
+        </span>
       </div>
     );
 
   return (
     <div className="grid grid-cols-4 gap-4">
-      {cars.map((car) => (
-        <CarCard key={car.id} car={car} href={`/cars/${car.id}`} />
-      ))}
+      {cars
+        .filter((car) => car.availability !== "rented")
+        .map((car) => (
+          <CarCard key={car.id} car={car} href={`/cars/${car.id}`} />
+        ))}
     </div>
   );
 }

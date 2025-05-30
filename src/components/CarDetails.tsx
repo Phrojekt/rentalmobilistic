@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import CarSpecifications from "./CarSpecifications";
 import { carService } from "@/services/carService";
 import { cartService } from "@/services/cartService";
 import { useAuth } from "@/hooks/useAuth";
@@ -57,319 +56,228 @@ export default function CarDetails() {
     loadCar();
   }, [loadCar]);
 
-  const handleBookingComplete = React.useCallback(async () => {
-    setIsBookingModalOpen(false);
-    await loadCar(); // Recarrega os dados do carro para atualizar o status
-  }, [loadCar]);
-
-  const handleCancelRental = async () => {
-    if (!user || !car) return;
-
-    if (!window.confirm("Tem certeza que deseja cancelar este aluguel?")) return;
-
-    try {
-      // Get user's confirmed rentals
-      const userRentals = await cartService.getConfirmedRentals(user.uid);
-      const currentRental = userRentals.find(rental => rental.carId === car.id);
-
-      if (!currentRental) {
-        console.error("Rental not found");
-        return;
-      }
-
-      // Update rental status to cancelled
-      await cartService.updateCartItem(currentRental.id, { status: 'cancelled' });
-
-      // Update car availability to available
-      await carService.updateCarAvailability(car.id, 'available');
-
-      // Reload car data
-      await loadCar();
-    } catch (error) {
-      console.error("Erro ao cancelar aluguel:", error);
-      alert("Erro ao cancelar aluguel. Por favor, tente novamente.");
-    }
-  };
 
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-[#676773]">Carregando...</div>
+        <div className="text-[#676773]">Loading...</div>
       </div>
     );
   }
 
-  // Componente para informações do aluguel
-  const RentalInfo = () => {
-    if (!car?.rentalInfo || !user) return null;
-
-    return (
-      <div className="mt-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
-        <h3 className="text-lg font-bold text-orange-700 mb-3">Seu Aluguel</h3>
-        <div className="space-y-2">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Data de Início:</span>
-            <span className="text-black font-medium">{new Date(car.rentalInfo.startDate).toLocaleDateString('pt-BR')}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Data de Devolução:</span>
-            <span className="text-black font-medium">{new Date(car.rentalInfo.endDate).toLocaleDateString('pt-BR')}</span>
-          </div>
-          <div className="flex justify-between text-lg font-semibold text-orange-700 pt-2 border-t border-orange-200">
-            <span>Valor Total:</span>
-            <span>R$ {car.rentalInfo.totalPrice.toLocaleString('pt-BR')}</span>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   if (!car) {
     return (
       <div className="flex justify-center items-center min-h-[400px]">
-        <div className="text-[#676773]">Carro não encontrado</div>
+        <div className="text-[#676773]">Car not found</div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col items-center w-full bg-white">
-      <div className="flex w-full p-[40px_40px_0px] gap-5 flex-wrap max-lg:p-[30px_30px_0px] max-sm:p-[20px_20px_0px]">
-        {/* Imagem principal do carro */}
-        <div className="w-[910px] h-[620px] rounded-lg bg-[#DDD] max-lg:w-full max-sm:h-[300px] relative overflow-hidden">
-          {car.images[selectedImage] && (
-            <Image
-              src={car.images[selectedImage]}
-              alt={`${car.name} - Imagem ${selectedImage + 1}`}
-              fill
-              className="object-cover"
-              priority
-            />
-          )}
-        </div>
-
-        {/* Informações do carro */}
-        <div className="flex w-[430px] h-auto p-[30px_40px] flex-col items-start gap-[18px] rounded-lg border-[0.65px] border-[#676773] max-lg:w-full max-sm:p-5">
-          <div className="flex h-[54px] flex-col items-start gap-2.5 w-full">
-            <h1 className="text-black font-geist text-xl font-black">
-              {car.name}
-            </h1>
-            <div className="flex items-center gap-2 text-[#676773]">
+      <div className="flex w-full max-w-7xl mx-auto gap-8 py-10 px-6 flex-col lg:flex-row">
+        {/* Left: Main Image and Gallery */}
+        <div className="flex flex-col w-full lg:w-2/3">
+          <div className="relative w-full aspect-[16/10] bg-gray-200 rounded-lg overflow-hidden">
+            {car.images[selectedImage] && (
               <Image
-                src="/gps_icon.png"
-                alt="Location Icon"
-                width={14}
-                height={14}
-                className="object-contain"
-              />
-              <span className="font-inter text-sm">
-                {car.location.city}, {car.location.state}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex h-[26px] justify-between items-center w-full">
-            <div className="flex items-baseline gap-1">
-              <span className="text-black font-geist text-xl">
-                R$ {car.pricePerDay.toLocaleString('pt-BR')}
-              </span>
-              <span className="text-[#676773] font-geist text-sm">/DIA</span>
-            </div>
-            <div className={`font-geist text-xs font-bold h-5 px-3 flex items-center justify-center rounded-[30px] ${
-              car.availability === 'available' 
-                ? 'bg-[#FFF7ED] text-[#EA580C]' 
-                : car.availability === 'rented'
-                ? 'bg-[#FFE4E4] text-red-600'
-                : 'bg-gray-100 text-gray-600'
-            }`}>
-              {car.availability === 'available' 
-                ? 'Disponível' 
-                : car.availability === 'rented' 
-                ? 'Alugado' 
-                : 'Em Manutenção'}
-            </div>
-          </div>
-
-          {car.availability === 'rented' && car?.rentalInfo && user && (
-            <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
-              <div className="text-red-600 text-sm mb-3">
-                Este carro já está alugado no momento.
-              </div>
-              
-              {/* Informações do aluguel atual */}
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Data de Início:</span>
-                  <span className="text-black font-medium">
-                    {new Date(car.rentalInfo.startDate).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Data de Devolução:</span>
-                  <span className="text-black font-medium">
-                    {new Date(car.rentalInfo.endDate).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-                <div className="flex justify-between text-lg font-semibold text-red-700 pt-2 border-t border-red-200">
-                  <span>Valor Total:</span>
-                  <span>R$ {car.rentalInfo.totalPrice.toLocaleString('pt-BR')}</span>
-                </div>
-
-                {/* Botão de Cancelar */}
-                <button 
-                  onClick={() => handleCancelRental()}  
-                  className="mt-3 w-full py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors font-medium"
-                >
-                  Cancelar Aluguel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Especificações básicas */}
-          <div className="flex flex-col gap-2.5 w-full">
-            <div className="flex justify-between">
-              <div className="flex items-center gap-2">
-                <Image
-                  src="/CarIcon.png"
-                  alt="Transmission Icon"
-                  width={14}
-                  height={14}
-                  className="object-contain"
-                />
-                <span className="text-[#676773] font-inter text-sm">
-                  {car.transmission === 'automatic' ? 'Automático' : 'Manual'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Image
-                  src="/NumberofSeats_icon.png"
-                  alt="Seats Icon"
-                  width={14}
-                  height={14}
-                  className="object-contain"
-                />
-                <span className="text-[#676773] font-inter text-sm">
-                  {car.seats} assentos
-                </span>
-              </div>
-            </div>
-            <div className="flex justify-between">
-              <div className="flex items-center gap-2">
-                <Image
-                  src="/RentalIcon.png"
-                  alt="Fuel Icon"
-                  width={14}
-                  height={14}
-                  className="object-contain"
-                />
-                <span className="text-[#676773] font-inter text-sm">
-                  {car.fuel === 'gasoline' ? 'Gasolina' 
-                    : car.fuel === 'diesel' ? 'Diesel'
-                    : car.fuel === 'electric' ? 'Elétrico'
-                    : 'Híbrido'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Image
-                  src="/window.svg"
-                  alt="Year Icon"
-                  width={14}
-                  height={14}
-                  className="object-contain"
-                />
-                <span className="text-[#676773] font-inter text-sm">
-                  {car.year}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Botão de alugar */}
-          <button 
-            className={`w-full h-9 flex items-center justify-center rounded font-geist text-sm font-bold ${
-              car.availability === 'available'
-                ? 'bg-[#EA580C] text-white hover:bg-[#D45207] transition-colors'
-                : 'bg-gray-300 text-gray-600 cursor-not-allowed'
-            }`}
-            disabled={car.availability !== 'available'}
-            onClick={() => setIsBookingModalOpen(true)}
-          >
-            {car.availability === 'available' ? 'Solicitar Aluguel' : 'Indisponível'}
-          </button>
-          
-          {isBookingModalOpen && (
-            <BookingModal 
-              car={car} 
-              isOpen={isBookingModalOpen}
-              onClose={() => setIsBookingModalOpen(false)}
-              onBookingComplete={handleBookingComplete}
-            />
-          )}
-        </div>
-
-        {/* Galeria de imagens */}
-        <div className="flex w-full gap-2.5 overflow-x-auto py-2">
-          {car.images.map((image, index) => (
-            <div
-              key={index}
-              className={`w-[100px] h-[104px] flex-shrink-0 rounded relative overflow-hidden cursor-pointer ${
-                selectedImage === index ? 'border-2 border-[#EA580C]' : ''
-              }`}
-              onClick={() => setSelectedImage(index)}
-            >
-              <Image
-                src={image}
-                alt={`${car.name} - Imagem ${index + 1}`}
+                src={car.images[selectedImage]}
+                alt={`${car.name} - Image ${selectedImage + 1}`}
                 fill
                 className="object-cover"
+                priority
               />
-            </div>
-          ))}
-        </div>
-
-        {/* Abas de detalhes */}
-        <div className="flex w-full flex-col gap-5">
-          <div className="flex w-[392px] h-[41px] px-1 justify-between items-center rounded bg-[#DDD] max-sm:w-full">
-            {["details", "features", "reviews"].map((tab) => (
+            )}
+          </div>
+          <div className="flex gap-3 mt-4">
+            {car.images.map((image, index) => (
               <button
-                key={tab}
-                onClick={() => setSelectedTab(tab as typeof selectedTab)}
-                className={`w-[90px] h-6 rounded text-sm font-semibold ${
-                  selectedTab === tab
-                    ? "bg-white text-black"
-                    : "bg-transparent text-[#676767]"
-                }`}
+                key={index}
+                className={`relative w-20 h-20 rounded overflow-hidden border-2 ${selectedImage === index ? "border-orange-500" : "border-transparent"}`}
+                onClick={() => setSelectedImage(index)}
+                aria-label={`Show image ${index + 1}`}
               >
-                {tab === 'details' ? 'Detalhes'
-                  : tab === 'features' ? 'Características'
-                  : 'Avaliações'}
+                <Image
+                  src={image}
+                  alt={`${car.name} - Thumbnail ${index + 1}`}
+                  fill
+                  className="object-cover"
+                />
               </button>
             ))}
           </div>
-
-          {selectedTab === "details" && (
-            <>
-              <CarSpecifications car={car} />
-              <RentalInfo />
-            </>
-          )}
-          {selectedTab === "features" && (
-            <div className="flex flex-wrap gap-4">
-              {car.features.map((feature, index) => (
-                <div key={index} className="bg-[#F8FAFC] text-black p-3 rounded">
-                  {feature}
-                </div>
+          {/* Tabs */}
+          <div className="mt-8">
+            <div className="flex gap-2 mb-4">
+              {["details", "features", "reviews"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setSelectedTab(tab as typeof selectedTab)}
+                  className={`px-5 py-2 rounded-t font-semibold text-sm border-b-2 ${
+                    selectedTab === tab
+                      ? "bg-white border-orange-500 text-black"
+                      : "bg-gray-100 border-transparent text-gray-500"
+                  }`}
+                >
+                  {tab === "details"
+                    ? "Details"
+                    : tab === "features"
+                    ? "Features"
+                    : "Reviews"}
+                </button>
               ))}
             </div>
-          )}
-          {selectedTab === "reviews" && (
-            <div className="text-[#676773] p-4 bg-[#F8FAFC] rounded">
-              Em breve: avaliações dos usuários
+            <div className="rounded-b p-6 min-h-[120px]">
+              {selectedTab === "details" && (
+                <>
+                  <div className="mb-4">
+                    <h3 className="font-bold text-black text-lg mb-2">Description</h3>
+                    <p className="text-gray-700">{car.description}</p>
+                  </div>
+                  {/* Car Specifications as cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-gray-50 border rounded p-3 flex flex-col items-start">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Image src="/CarIcon.png" alt="Category Icon" width={18} height={18} />
+                        <span className="text-base font-bold text-black">Category</span>
+                      </div>
+                      <span className="text-sm font-medium text-black">{car.category}</span>
+                    </div>
+                    <div className="bg-gray-50 border rounded p-3 flex flex-col items-start">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Image src="/OrangeSeats_icon.png" alt="Seats Icon" width={18} height={18} />
+                        <span className="text-base font-bold text-black">Seats</span>
+                      </div>
+                      <span className="text-sm font-medium text-black">{car.seats}</span>
+                    </div>
+                    <div className="bg-gray-50 border rounded p-3 flex flex-col items-start">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Image src="/TransmissionIcon.png" alt="Transmission Icon" width={18} height={18} />
+                        <span className="text-base font-bold text-black">Transmission</span>
+                      </div>
+                      <span className="text-sm font-medium text-black">{car.transmission === "automatic" ? "Automatic" : "Manual"}</span>
+                    </div>
+                    <div className="bg-gray-50 border rounded p-3 flex flex-col items-start">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Image src="/FuelIcon.png" alt="Fuel Icon" width={18} height={18} />
+                        <span className="text-base font-bold text-black">Fuel</span>
+                      </div>
+                      <span className="text-sm font-medium text-black capitalize">{car.fuel}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+              {selectedTab === "features" && (
+                <div>
+                  <h3 className="font-bold text-black text-lg mb-4">Vehicle features</h3>
+                  {car.features.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-8">
+                      {car.features.map((feature, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          {/* Check icon SVG, laranja */}
+                          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                            <path d="M5 10.5L9 14.5L15 7.5" stroke="#EA580C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                          <span className="text-black">{feature}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-gray-500">No features listed.</span>
+                  )}
+                </div>
+              )}
+              {selectedTab === "reviews" && (
+                <div className="text-gray-500">Coming soon: user reviews</div>
+              )}
             </div>
-          )}
+          </div>
+        </div>
+        {/* Right: Car Info and Booking */}
+        <div className="w-full lg:w-1/3">
+          <div className="bg-white border rounded-lg p-6 flex flex-col gap-4 shadow-sm">
+            <h2 className="font-bold text-2xl mb-1 text-[#1A1A1A]">
+              {car.name} {car.year && `(${car.year})`}
+            </h2>
+            <div className="flex items-center gap-2 text-[#676773] text-base mb-2">
+              <Image src="/gps_icon.png" alt="Location Icon" width={16} height={16} />
+              <span>{car.location.city}, {car.location.state}</span>
+            </div>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-3xl font-bold text-[#EA580C]">${car.pricePerDay}</span>
+              <span className="text-[#676773] text-base">/DAY</span>
+            </div>
+            <div
+              className={`text-xs font-semibold mb-2 ${
+                car.availability === "available"
+                  ? "text-[#16A34A]"
+                  : car.availability === "rented"
+                  ? "text-[#EA580C]"
+                  : "text-[#F59E42]"
+              }`}
+            >
+              {car.availability === "available"
+                ? "Available Now"
+                : car.availability === "rented"
+                ? "Currently Rented"
+                : "Maintenance"}
+            </div>
+            {/* Booking Form Placeholder */}
+            <div className="bg-gray-50 rounded p-4 mb-2">
+              <div className="mb-2">
+                <label className="block text-xs text-[#676773] mb-1">Select Period</label>
+                <input
+                  type="text"
+                  className="w-full border rounded px-2 py-1 text-sm text-[#1A1A1A] bg-white"
+                  placeholder="dd/mm/yyyy - dd/mm/yyyy"
+                  disabled
+                />
+              </div>
+              <div className="flex flex-col gap-1 text-sm mb-2">
+                <div className="flex justify-between">
+                  <span className="text-[#676773]">${car.pricePerDay} x 3</span>
+                  <span className="text-[#1A1A1A] font-semibold">${car.pricePerDay * 3}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#676773]">Service fee</span>
+                  <span className="text-[#1A1A1A] font-semibold">$45</span>
+                </div>
+                <div className="flex justify-between font-bold border-t pt-1">
+                  <span className="text-[#1A1A1A]">Total</span>
+                  <span className="text-[#EA580C]">${car.pricePerDay * 3 + 45}</span>
+                </div>
+              </div>
+              <button
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 rounded transition-colors"
+                disabled={car.availability !== "available"}
+                onClick={() => setIsBookingModalOpen(true)}
+              >
+                Request Rental
+              </button>
+            </div>
+            {/* Owner Info Placeholder */}
+            <div className="flex items-center gap-3 mt-2">
+              <div className="w-10 h-10 rounded-full bg-gray-200" />
+              <div>
+                <div className="font-semibold text-sm text-black">Mark Williams</div>
+                <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <span>⭐⭐⭐⭐☆</span>
+                  <span>(230 Reviews)</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+      {/* Booking Modal */}
+      {isBookingModalOpen && (
+        <BookingModal
+          car={car}
+          isOpen={isBookingModalOpen}
+          onClose={() => setIsBookingModalOpen(false)}
+          onBookingComplete={() => {}}
+        />
+      )}
     </div>
   );
 }

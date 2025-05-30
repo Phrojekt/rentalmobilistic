@@ -22,6 +22,9 @@ function AdminCarsPageContent() {
   const [rentedCars, setRentedCars] = useState<Car[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>(tab as TabType || 'my-cars');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [carFilter, setCarFilter] = useState<'all' | 'active' | 'pending'>('all');
+
   useEffect(() => {
     async function loadUserCars() {
       if (authLoading) return; // Aguarda o carregamento da autenticação
@@ -95,102 +98,132 @@ function AdminCarsPageContent() {
   if (!user) return null;
 
   // Renderiza um carro individual
-  const renderCarCard = (car: Car, isRentedTab: boolean = false) => (
-    <div
-      key={car.id}
-      className="border rounded-lg p-4 hover:border-[#EA580C] transition-colors"
-    >
-      <div className="relative h-48 mb-4 bg-gray-200 rounded-lg overflow-hidden">
-        {car.images[0] && (
-          <Image
-            src={car.images[0]}
-            alt={car.name}
-            fill
-            className="object-cover"
-          />
-        )}
-      </div>
-      <h2 className="text-black font-bold mb-2">{car.name}</h2>
-      <p className="text-[#676773] mb-2">
-        {car.location.city}, {car.location.state}
-      </p>      <div className="flex flex-col gap-2">
-        <p className="text-[#EA580C] font-bold">
-          R$ {car.pricePerDay.toLocaleString('pt-BR')}/day
-        </p>
-        {car.availability === 'rented' && (
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded-full text-center">
-              Alugado
-            </span>
-            {isRentedTab && car.rentalInfo && (
-              <>
-                <span className="text-xs text-gray-600">
-                  Início: {new Date(car.rentalInfo.startDate).toLocaleDateString('pt-BR')}
-                </span>
-                <span className="text-xs text-gray-600">
-                  Devolução: {new Date(car.rentalInfo.endDate).toLocaleDateString('pt-BR')}
-                </span>
-                <span className="text-xs font-semibold text-green-600">
-                  Total: R$ {car.rentalInfo.totalPrice.toLocaleString('pt-BR')}
-                </span>
-              </>
+  const renderCarCard = (car: Car) => {
+    // Simulação de dados para demo
+
+    // Booking Rate: dias alugados / dias totais do mês (exemplo)
+    let bookingRate = 0;
+    if (car.rentalInfo) {
+      const start = new Date(car.rentalInfo.startDate);
+      const end = new Date(car.rentalInfo.endDate);
+      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      bookingRate = Math.min(100, Math.round((days / 30) * 100));
+    }
+
+    return (
+      <div
+        key={car.id}
+        className="border rounded-lg p-0 bg-white shadow-sm flex flex-col w-full max-w-[320px] ml-0"
+      >
+        {/* Banner */}
+        <div className="relative h-40 bg-gray-100 rounded-t-lg overflow-hidden flex items-center justify-center">
+          {car.images?.[0] ? (
+            <Image
+              src={car.images[0]}
+              alt={car.name}
+              fill
+              className="object-cover"
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center w-full h-full">
+              <span className="text-gray-400">No Image</span>
+            </div>
+          )}
+        </div>
+        {/* Conteúdo */}
+        <div className="p-4 flex-1 flex flex-col">
+          {/* Nome e localização */}
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-black font-bold text-lg">{car.name}</h2>
+            {/* Disponibilidade */}
+            {car.availability === "available" && (
+              <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full">Active</span>
+            )}
+            {car.availability === "rented" && (
+              <span className="bg-red-50 text-red-600 text-xs font-bold px-2 py-1 rounded-full">Alugado</span>
+            )}
+            {car.availability === "maintenance" && (
+              <span className="bg-yellow-50 text-yellow-600 text-xs font-bold px-2 py-1 rounded-full">Manutenção</span>
             )}
           </div>
-        )}
-        {car.availability === 'maintenance' && (
-          <span className="text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full text-center">
-            Em Manutenção
-          </span>
-        )}
-      </div>
-      <div className="flex justify-between items-center mt-4">
-        {isRentedTab ? (
-          <Link
-            href={`/cars/${car.id}`}
-            className="text-blue-600 hover:underline w-full text-center"
-          >
-            Ver Detalhes
-          </Link>
-        ) : (
-          <>
-            <Link
-              href={`/admin/cars/${car.id}/edit`}
-              className="text-blue-600 hover:underline"
-            >
-              Editar
-            </Link>
+          <div className="flex items-center gap-2 text-[#676773] text-sm mb-3">
+            <Image src="/gps_icon.png" alt="Location Icon" width={16} height={16} />
+            <span>{car.location.city}, {car.location.state}</span>
+          </div>
+          {/* Booking Rate */}
+          <div className="flex items-center justify-between text-xs text-[#676773] mb-1">
+            <span>Booking rate</span>
+            <span>{bookingRate}%</span>
+          </div>
+          <div className="w-full h-2 bg-gray-200 rounded mb-4">
+            <div
+              className="h-2 bg-[#EA580C] rounded"
+              style={{ width: `${bookingRate}%` }}
+            />
+          </div>
+          {/* Ações */}
+          <div className="flex items-center justify-between gap-8 mt-auto">
+            {/* Dropdown de ações */}
+            <div className="relative">
+              <button
+                className="flex items-center gap-1 px-3 py-1 border rounded bg-white text-black font-semibold hover:bg-gray-100 cursor-pointer"
+                onClick={() => setOpenMenuId(openMenuId === car.id ? null : car.id)}
+                type="button"
+              >
+                <span className="material-icons" style={{ fontSize: 18 }}>Manage</span>
+
+              </button>
+              {openMenuId === car.id && (
+                <div className="absolute left-0 top-10 z-10 bg-white border rounded shadow-lg min-w-[180px]">
+                    <Link
+                      href={`/cars/${car.id}`}
+                      className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black"
+                    >
+                      View Details
+                    </Link>
+                    <Link
+                      href={`/admin/cars/${car.id}/edit`}
+                      className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black"
+                    >
+                      Edit Car
+                    </Link>
+                  <button className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black">Update Availability</button>
+                  <button className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black">View Rental History</button>
+                </div>
+              )}
+            </div>
+            {/* Botão remover direto */}
             <button
+              className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 font-semibold cursor-pointer"
               onClick={() => handleDelete(car.id)}
-              className="text-red-600 hover:underline"
             >
-              Excluir
+              <span className="material-icons text-[18px] text-white">Remove</span>
             </button>
-          </>
-        )}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Renderiza o conteúdo da tab ativa
   const renderTabContent = () => {
     const items = activeTab === 'my-cars' ? cars : rentedCars;
-    const isRentedTab = activeTab === 'rented-cars';
 
     if (items.length === 0) {
       return (
         <div className="text-center py-10">
           <p className="text-[#676773] mb-4">
-            {isRentedTab
-              ? 'Você ainda não alugou nenhum carro.'
-              : 'Você ainda não cadastrou nenhum carro.'}
+            {activeTab === 'rented-cars'
+              ? 'You have not rented any cars yet.'
+              : 'You have not registered any cars yet.'}
           </p>
           <Link
-            href={isRentedTab ? '/cars' : '/admin/cars/new'}
+            href={activeTab === 'rented-cars' ? '/cars' : '/admin/cars/new'}
             className="text-[#EA580C] hover:underline"
           >
-            {isRentedTab
-              ? 'Clique aqui para explorar carros disponíveis'
-              : 'Clique aqui para cadastrar seu primeiro carro'}
+            {activeTab === 'rented-cars'
+              ? 'Click here to explore available cars'
+              : 'Click here to register your first car'}
           </Link>
         </div>
       );
@@ -198,10 +231,17 @@ function AdminCarsPageContent() {
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {items.map(car => renderCarCard(car, isRentedTab))}
+        {items.map(car => renderCarCard(car))}
       </div>
     );
   };
+
+  // Filtragem dos carros conforme o filtro selecionado
+  const filteredCars = cars.filter(car => {
+    if (carFilter === 'all') return true;
+    if (carFilter === 'active') return car.availability === 'available';
+    return true;
+  });
 
   return (
     <div className="container mx-auto p-6">
@@ -229,17 +269,57 @@ function AdminCarsPageContent() {
               Rental Cars
             </button>
           </div>
-          {activeTab === 'my-cars' && (
-            <Link
-              href="/admin/cars/new"
-              className="bg-[#EA580C] text-white px-4 py-2 rounded-lg hover:bg-[#D45207] transition-colors"
-            >
-              Adicionar Novo Carro
-            </Link>
-          )}
         </div>
-        
-        {renderTabContent()}
+
+        {/* Bloco de título, subtítulo e dropdown apenas para My Cars */}
+        {activeTab === 'my-cars' && (
+          <div className="flex justify-between items-center mt-2 mb-4">
+            <div>
+              <h1 className="text-2xl font-bold text-black">My Cars</h1>
+              <p className="text-[#676773] text-base">Manage your registered cars</p>
+            </div>
+            <div>
+              <select
+                className="border rounded px-4 py-2 text-black bg-white"
+                value={carFilter}
+                onChange={e => setCarFilter(e.target.value as 'all' | 'active' | 'pending')}
+              >
+                <option value="all">All Cars</option>
+                <option value="active">Active Cars</option>
+                <option value="pending">Pending Approval</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Cards rendering with applied filter */}
+        {activeTab === 'my-cars'
+          ? (
+            <>
+              {filteredCars.length === 0
+                ? (
+                  <div className="text-center py-10">
+                    <p className="text-[#676773] mb-4">
+                      You have not registered any cars yet.
+                    </p>
+                    <Link
+                      href="/admin/cars/new"
+                      className="text-[#EA580C] hover:underline"
+                    >
+                      Click here to register your first car
+                    </Link>
+                  </div>
+                )
+                : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredCars.map(car => renderCarCard(car))}
+                  </div>
+                )
+              }
+            </>
+          )
+          : renderTabContent()
+        }
       </div>
     </div>
   );

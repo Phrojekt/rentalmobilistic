@@ -26,6 +26,7 @@ export interface Car {
   name: string;
   brand: string;
   model: string;
+  category: string;
   year: number;
   price: number;
   pricePerDay: number;
