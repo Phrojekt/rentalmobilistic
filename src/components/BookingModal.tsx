@@ -69,11 +69,13 @@ export default function BookingModal({ car, isOpen, onClose, onBookingComplete }
 
     try {      const totalPrice = calculateTotalPrice();
       
-      // Adiciona ao carrinho e imediatamente confirma a reserva
+      // Adiciona ao carrinho e imediatamente confirma a reserva      // Adiciona o item ao carrinho e confirma imediatamente
       const cartItem = await cartService.addToCart(user.uid, car.id, start, end, totalPrice);
+      
+      // Atualiza o status do item para confirmado
       await cartService.updateCartItem(cartItem.id, { status: 'confirmed' });
-      await cartService.confirmCartItems(user.uid);
-        // Atualiza o status do carro para 'rented'
+      
+      // Atualiza o status do carro para 'rented'
       await carService.updateCarAvailability(car.id, 'rented');
         setSuccess(true);
       

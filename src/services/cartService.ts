@@ -8,10 +8,13 @@ import {
   deleteDoc,
   query,
   where,
-  Timestamp
+  orderBy,
+  Timestamp,
+  QueryDocumentSnapshot,
+  DocumentData,
+  FieldValue,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import { carService } from './carService';
 
 /**
@@ -38,9 +41,30 @@ export interface CartItem {
   updatedAt: Date;
 }
 
-/**
- * Converte um documento do Firestore em um objeto CartItem
- */
+const hasBookingOverlap = (
+  booking: CartItem,
+  startDate: Date,
+  endDate: Date
+): boolean => {
+  // Convert all dates to local dates for comparison
+  const bookingStart = new Date(new Date(booking.startDate).toLocaleDateString());
+  const bookingEnd = new Date(new Date(booking.endDate).toLocaleDateString());
+  const newStart = new Date(new Date(startDate).toLocaleDateString());
+  const newEnd = new Date(new Date(endDate).toLocaleDateString());
+
+  // Compare using local timestamps
+  const bookingStartTime = bookingStart.getTime();
+  const bookingEndTime = bookingEnd.getTime();
+  const newStartTime = newStart.getTime();
+  const newEndTime = newEnd.getTime();
+  
+  return (
+    (newStartTime >= bookingStartTime && newStartTime <= bookingEndTime) ||
+    (newEndTime >= bookingStartTime && newEndTime <= bookingEndTime) ||
+    (newStartTime <= bookingStartTime && newEndTime >= bookingEndTime)
+  );
+};
+
 const convertToCartItem = (doc: QueryDocumentSnapshot<DocumentData>): CartItem => {
   const data = doc.data();
   return {
@@ -54,7 +78,6 @@ const convertToCartItem = (doc: QueryDocumentSnapshot<DocumentData>): CartItem =
 };
 
 export const cartService = {
-  // Add item to cart
   async addToCart(
     userId: string,
     carId: string,
@@ -63,30 +86,53 @@ export const cartService = {
     totalPrice: number
   ): Promise<CartItem> {
     try {
+      // Validate the car's availability and booking dates
+      const car = await carService.getCarById(carId);
+      if (!car) {
+        throw new Error('Carro não encontrado');
+      }
+      if (car.availability !== 'available') {
+        throw new Error('Este carro não está disponível para aluguel no momento');
+      }      // Validate dates      // Normalize dates for comparison using local timezone
+      const startDateTime = new Date(startDate);
+      const endDateTime = new Date(endDate);
+      
+      // Get today's date at local midnight
+      const today = new Date();
+      
+      // Convert all dates to local date strings and back to Date objects
+      // This ensures we're comparing dates in the local timezone
+      const todayStart = new Date(today.toLocaleDateString());
+      const localStartDate = new Date(startDateTime.toLocaleDateString());
+      const localEndDate = new Date(endDateTime.toLocaleDateString());
+
+      // Debug logs
+      console.log('Today (local):', todayStart);
+      console.log('Start date (local):', localStartDate);
+      console.log('End date (local):', localEndDate);
+
+      // Compare dates using local timestamps
+      const todayTime = todayStart.getTime();
+      const startTime = localStartDate.getTime();      if (startTime < todayTime) {
+        throw new Error('A data de início deve ser hoje ou uma data futura');
+      }
+      if (localEndDate.getTime() < localStartDate.getTime()) {
+        throw new Error('A data de término não pode ser anterior à data de início');
+      }
+      if (localStartDate.getTime() === localEndDate.getTime()) {
+        throw new Error('O período de aluguel deve ser de pelo menos 1 dia');
+      }
+
       // Check for overlapping bookings
       const existingBookings = await this.getCarBookings(carId);
-      const hasOverlap = existingBookings.some(booking => {
-        const bookingStart = booking.startDate.getTime();
-        const bookingEnd = booking.endDate.getTime();
-        const newStart = startDate.getTime();
-        const newEnd = endDate.getTime();
-        
-        return (
-          (newStart >= bookingStart && newStart <= bookingEnd) ||
-          (newEnd >= bookingStart && newEnd <= bookingEnd) ||
-          (newStart <= bookingStart && newEnd >= bookingEnd)
-        );
-      });
+      const hasOverlap = existingBookings.some(booking => hasBookingOverlap(booking, startDate, endDate));
 
       if (hasOverlap) {
         throw new Error('Este período já está reservado para este carro');
       }
 
-      const cartRef = collection(db, 'carts');
-      const newCartItemRef = doc(cartRef);
-
-      const cartItem: CartItem = {
-        id: newCartItemRef.id,
+      // Create new cart item
+      const cartItemData: Omit<CartItem, 'id'> = {
         userId,
         carId,
         startDate,
@@ -97,132 +143,189 @@ export const cartService = {
         updatedAt: new Date()
       };
 
-      await setDoc(newCartItemRef, cartItem);
-      return cartItem;
-    } catch (error: Error | unknown) {
+      const cartRef = doc(collection(db, 'carts'));
+      await setDoc(cartRef, {
+        ...cartItemData,
+        startDate: Timestamp.fromDate(cartItemData.startDate),
+        endDate: Timestamp.fromDate(cartItemData.endDate),
+        createdAt: Timestamp.fromDate(cartItemData.createdAt),
+        updatedAt: Timestamp.fromDate(cartItemData.updatedAt)
+      });
+
+      return {
+        id: cartRef.id,
+        ...cartItemData
+      };
+    } catch (error) {
       console.error('Error in addToCart:', error);
-      throw error instanceof Error ? error : new Error('Erro desconhecido ao adicionar ao carrinho');
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Erro desconhecido ao adicionar ao carrinho');
     }
   },
 
-  // Get user's cart items
   async getCartItems(userId: string): Promise<CartItem[]> {
     try {
       const cartRef = collection(db, 'carts');
       const q = query(
         cartRef,
         where('userId', '==', userId),
-        where('status', '==', 'pending')
+        orderBy('createdAt', 'desc')
       );
-
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(convertToCartItem) as CartItem[];
-    } catch (error: Error | unknown) {
+      return querySnapshot.docs.map(convertToCartItem);
+    } catch (error) {
       console.error('Error in getCartItems:', error);
-      throw error instanceof Error ? error : new Error('Erro desconhecido ao buscar itens do carrinho');
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Erro desconhecido ao buscar itens do carrinho');
     }
   },
 
-  // Get car's bookings to check availability
   async getCarBookings(carId: string): Promise<CartItem[]> {
     try {
       const cartRef = collection(db, 'carts');
       const q = query(
         cartRef,
         where('carId', '==', carId),
-        where('status', 'in', ['pending', 'confirmed'])
+        where('status', 'in', ['confirmed', 'pending'])
       );
-      
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(convertToCartItem) as CartItem[];
-    } catch (error: Error | unknown) {
+      return querySnapshot.docs.map(convertToCartItem);
+    } catch (error) {
       console.error('Error in getCarBookings:', error);
-      throw error instanceof Error ? error : new Error('Erro desconhecido ao buscar reservas do carro');
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Erro desconhecido ao buscar reservas do carro');
     }
   },
 
-  // Update cart item
   async updateCartItem(cartItemId: string, data: Partial<CartItem>): Promise<void> {
     try {
       const cartItemRef = doc(db, 'carts', cartItemId);
-      await updateDoc(cartItemRef, {
+      const updateData: { [key: string]: FieldValue | Partial<unknown> | undefined } = {
         ...data,
-        updatedAt: new Date()
-      });
-    } catch (error: Error | unknown) {
+        updatedAt: Timestamp.fromDate(new Date())
+      };
+
+      // Convert Date objects to Timestamps for Firestore
+      if (data.startDate) {
+        updateData.startDate = Timestamp.fromDate(data.startDate);
+      }
+      if (data.endDate) {
+        updateData.endDate = Timestamp.fromDate(data.endDate);
+      }
+      if (data.createdAt) {
+        updateData.createdAt = Timestamp.fromDate(data.createdAt);
+      }
+
+      await updateDoc(cartItemRef, updateData);
+    } catch (error) {
       console.error('Error in updateCartItem:', error);
-      throw error instanceof Error ? error : new Error('Erro desconhecido ao atualizar item do carrinho');
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Erro desconhecido ao atualizar item do carrinho');
     }
   },
 
-  // Remove item from cart
   async removeFromCart(cartItemId: string): Promise<void> {
     try {
       await deleteDoc(doc(db, 'carts', cartItemId));
-    } catch (error: Error | unknown) {
+    } catch (error) {
       console.error('Error in removeFromCart:', error);
-      throw error instanceof Error ? error : new Error('Erro desconhecido ao remover item do carrinho');
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Erro desconhecido ao remover item do carrinho');
     }
   },
 
-  // Clear user's cart
   async clearCart(userId: string): Promise<void> {
     try {
       const cartItems = await this.getCartItems(userId);
-      const deletePromises = cartItems.map(item => 
-        deleteDoc(doc(db, 'carts', item.id))
+      await Promise.all(
+        cartItems.map(item => deleteDoc(doc(db, 'carts', item.id)))
       );
-      await Promise.all(deletePromises);
-    } catch (error: Error | unknown) {
+    } catch (error) {
       console.error('Error in clearCart:', error);
-      throw error instanceof Error ? error : new Error('Erro desconhecido ao limpar o carrinho');
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Erro desconhecido ao limpar carrinho');
     }
   },
 
-  // Get cart item by ID
   async getCartItemById(cartItemId: string): Promise<CartItem | null> {
     try {
       const cartItemDoc = await getDoc(doc(db, 'carts', cartItemId));
       if (!cartItemDoc.exists()) {
         return null;
       }
-        return convertToCartItem(cartItemDoc as QueryDocumentSnapshot<DocumentData>);
-    } catch (error: Error | unknown) {
+      return convertToCartItem(cartItemDoc as QueryDocumentSnapshot<DocumentData>);
+    } catch (error) {
       console.error('Error in getCartItemById:', error);
-      throw error instanceof Error ? error : new Error('Erro desconhecido ao buscar item do carrinho');
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Erro desconhecido ao buscar item do carrinho');
     }
   },
-  // Confirm cart items (change status to confirmed)
-  async confirmCartItems(userId: string): Promise<void> {
-    try {
-      const cartItems = await this.getCartItems(userId);
-      const updatePromises = cartItems.map(async (item) => {
-        await this.updateCartItem(item.id, { status: 'confirmed' });
-        // Atualiza o status do carro para 'rented'
-        await carService.updateCarAvailability(item.carId, 'rented');
-      });
-      await Promise.all(updatePromises);
-    } catch (error: Error | unknown) {
-      console.error('Error in confirmCartItems:', error);
-      throw error instanceof Error ? error : new Error('Erro desconhecido ao confirmar itens do carrinho');
-    }
-  },
-
-  // Get user's confirmed rentals
   async getConfirmedRentals(userId: string): Promise<CartItem[]> {
     try {
       const cartRef = collection(db, 'carts');
       const q = query(
         cartRef,
         where('userId', '==', userId),
-        where('status', '==', 'confirmed')
+        where('status', '==', 'confirmed'),
+        orderBy('startDate', 'desc')
       );
+      const querySnapshot = await getDocs(q);
       
+      // Use um Map para manter apenas o aluguel mais recente de cada carro
+      const latestRentals = new Map<string, CartItem>();
+      
+      querySnapshot.docs.forEach(doc => {
+        const rental = convertToCartItem(doc);
+        const existingRental = latestRentals.get(rental.carId);
+        
+        // Se não existe aluguel para este carro ou se este é mais recente
+        if (!existingRental || rental.startDate > existingRental.startDate) {
+          latestRentals.set(rental.carId, rental);
+        }
+      });
+      
+      // Converte o Map de volta para um array e retorna
+      return Array.from(latestRentals.values());
+    } catch (error) {
+      console.error('Error in getConfirmedRentals:', error);
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Erro desconhecido ao buscar aluguéis confirmados');
+    }
+  },
+
+  async getCarRentalHistory(carId: string): Promise<CartItem[]> {
+    try {
+      const cartRef = collection(db, 'carts');
+      const q = query(
+        cartRef,
+        where('carId', '==', carId),
+        where('status', '==', 'confirmed'),
+        orderBy('startDate', 'desc')
+      );
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(convertToCartItem);
-    } catch (error: Error | unknown) {
-      console.error('Error in getConfirmedRentals:', error);
-      throw error instanceof Error ? error : new Error('Erro desconhecido ao buscar aluguéis confirmados');
+    } catch (error) {
+      console.error('Error in getCarRentalHistory:', error);
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Erro desconhecido ao buscar histórico de aluguéis');
     }
   }
 };

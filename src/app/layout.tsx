@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "@/contexts/UserContext";
+import { Toaster } from "react-hot-toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Rental Mobilistic",
-  description: "Complete platform for third-party car rentals. Rent a vehicle or list yours for rent in a simple and secure way.",
+  description:
+    "Complete platform for third-party car rentals. Rent a vehicle or list yours for rent in a simple and secure way.",
   icons: {
     icon: "/favicon.ico", // Caminho para o favicon
   },
@@ -28,17 +30,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" type="image/x-icon" />
-        <link rel="icon" href="/favicon.png" sizes="192x192" type="image/png" />
-        <link rel="apple-touch-icon" href="/favicon.png" />
-        <title>Rental Mobilistic</title>
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <UserProvider>
           {children}
+          <Toaster position="top-right" />
         </UserProvider>
       </body>
     </html>

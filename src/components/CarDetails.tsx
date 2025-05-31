@@ -1,13 +1,15 @@
-"use client";
-
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { carService } from "@/services/carService";
 import { cartService } from "@/services/cartService";
 import { useAuth } from "@/hooks/useAuth";
 import type { Car } from "@/services/carService";
 import BookingModal from "./BookingModal";
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { toast } from 'react-hot-toast'; // Add this import
 
 export default function CarDetails() {
   const params = useParams();
@@ -18,44 +20,88 @@ export default function CarDetails() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
   const { user } = useAuth();
+  const [ownerData, setOwnerData] = useState<{ 
+    name: string; 
+    email: string;
+    profilePicture?: string;
+  } | null>(null);
 
   const loadCar = React.useCallback(async () => {
     try {
       if (typeof params.id === 'string') {
         const carData = await carService.getCarById(params.id);
         
-        if (carData && user && carData.availability === 'rented') {
-          // Verificar se o carro está alugado pelo usuário atual
-          const userRentals = await cartService.getConfirmedRentals(user.uid);
-          const currentRental = userRentals.find(rental => rental.carId === carData.id);
+        if (carData) {
+          const ownerDoc = await getDoc(doc(db, 'users', carData.ownerId));
+          if (ownerDoc.exists()) {
+            const ownerInfo = ownerDoc.data();
+            setOwnerData({
+              name: ownerInfo.fullName || 'Car Owner',
+              email: ownerInfo.email,
+              profilePicture: ownerInfo.profilePicture
+            });
+          }
+
+          if (user && carData.availability === 'rented') {
+            const userRentals = await cartService.getConfirmedRentals(user.uid);
+            const currentRental = userRentals.find((rental) => 
+              rental.carId === carData.id && 
+              rental.status === 'confirmed'
+            );
+            
+            if (currentRental) {
+              const updatedCar = {
+                ...carData,
+                rentalInfo: {
+                  startDate: currentRental.startDate,
+                  endDate: currentRental.endDate,
+                  totalPrice: currentRental.totalPrice,
+                  status: currentRental.status as 'active' | 'cancelled' | 'completed'
+                }
+              };
+              setCar(updatedCar);
+              return;
+            }
+          }
           
-          if (currentRental) {
-            // Adicionar informações do aluguel ao carro
+          // Check for rental cancellation
+          if (carData.availability === 'available' && car?.availability === 'rented') {
+            toast.error('This rental has been cancelled by the owner');
+            // Clear rental info when cancelled
             setCar({
               ...carData,
-              rentalInfo: {
-                startDate: currentRental.startDate,
-                endDate: currentRental.endDate,
-                totalPrice: currentRental.totalPrice
-              }
+              rentalInfo: undefined
             });
             return;
           }
+          
+          setCar(carData);
         }
-        
-        setCar(carData);
       }
     } catch (error) {
-      console.error("Erro ao carregar carro:", error);
+      console.error("Error loading car:", error);
+      toast.error("Failed to load car details");
     } finally {
       setLoading(false);
     }
-  }, [params.id, user]);
+  }, [params.id, user, car?.availability]);
 
   useEffect(() => {
     loadCar();
   }, [loadCar]);
 
+  // Add polling to check for rental status changes
+  useEffect(() => {
+    if (!car?.id) return;
+
+    const checkRentalStatus = setInterval(loadCar, 30000); // Check every 30 seconds
+    return () => clearInterval(checkRentalStatus);
+  }, [car?.id, loadCar]);
+
+  const handleBookingComplete = async () => {
+    // Recarregar os dados do carro após a reserva
+    await loadCar();
+  };
 
   if (loading) {
     return (
@@ -72,6 +118,9 @@ export default function CarDetails() {
       </div>
     );
   }
+
+  // Add function to check if current user is owner
+  const isOwner = user?.uid === car?.ownerId;
 
   return (
     <div className="flex flex-col items-center w-full bg-white">
@@ -170,17 +219,28 @@ export default function CarDetails() {
               {selectedTab === "features" && (
                 <div>
                   <h3 className="font-bold text-black text-lg mb-4">Vehicle features</h3>
-                  {car.features.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-8">
-                      {car.features.map((feature, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          {/* Check icon SVG, laranja */}
-                          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                            <path d="M5 10.5L9 14.5L15 7.5" stroke="#EA580C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                          <span className="text-black">{feature}</span>
-                        </div>
-                      ))}
+                  {car.features.length > 0 ? (                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-8">
+                      {car.features.map((feature, idx) => {
+                        // Função para formatar o texto do feature
+                        const formatFeature = (text: string) => {
+                          // Separar palavras com base em camelCase ou underscores
+                          const words = text.replace(/([A-Z])/g, ' $1')
+                                          .replace(/_/g, ' ')
+                                          .toLowerCase()
+                                          .trim();
+                          // Capitalizar primeira letra
+                          return words.charAt(0).toUpperCase() + words.slice(1);
+                        };
+
+                        return (
+                          <div key={idx} className="flex items-center gap-2">
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                              <path d="M5 10.5L9 14.5L15 7.5" stroke="#EA580C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            <span className="text-black">{formatFeature(feature)}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <span className="text-gray-500">No features listed.</span>
@@ -221,61 +281,120 @@ export default function CarDetails() {
                 : car.availability === "rented"
                 ? "Currently Rented"
                 : "Maintenance"}
-            </div>
-            {/* Booking Form Placeholder */}
+            </div>            {/* Booking Form */}
             <div className="bg-gray-50 rounded p-4 mb-2">
-              <div className="mb-2">
-                <label className="block text-xs text-[#676773] mb-1">Select Period</label>
-                <input
-                  type="text"
-                  className="w-full border rounded px-2 py-1 text-sm text-[#1A1A1A] bg-white"
-                  placeholder="dd/mm/yyyy - dd/mm/yyyy"
-                  disabled
-                />
-              </div>
-              <div className="flex flex-col gap-1 text-sm mb-2">
-                <div className="flex justify-between">
-                  <span className="text-[#676773]">${car.pricePerDay} x 3</span>
-                  <span className="text-[#1A1A1A] font-semibold">${car.pricePerDay * 3}</span>
+              {isOwner ? (
+                <div className="text-center text-sm text-[#676773]">
+                  You cannot rent your own car
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[#676773]">Service fee</span>
-                  <span className="text-[#1A1A1A] font-semibold">$45</span>
-                </div>
-                <div className="flex justify-between font-bold border-t pt-1">
-                  <span className="text-[#1A1A1A]">Total</span>
-                  <span className="text-[#EA580C]">${car.pricePerDay * 3 + 45}</span>
-                </div>
-              </div>
-              <button
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 rounded transition-colors"
-                disabled={car.availability !== "available"}
-                onClick={() => setIsBookingModalOpen(true)}
-              >
-                Request Rental
-              </button>
-            </div>
-            {/* Owner Info Placeholder */}
+              ) : car.availability === "rented" && car.rentalInfo ? (
+                <>
+                  <div className="mb-4">
+                    <label className="block text-xs text-[#676773] mb-1">Current Rental Period</label>
+                    <div className="w-full border rounded px-2 py-1 text-sm text-[#1A1A1A] bg-white">
+                      {new Date(car.rentalInfo.startDate).toLocaleDateString()} - {new Date(car.rentalInfo.endDate).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1 text-sm mb-2">
+                    <div className="flex justify-between font-bold border-t pt-1">
+                      <span className="text-[#1A1A1A]">Total Paid</span>
+                      <span className="text-[#EA580C]">${car.rentalInfo.totalPrice}</span>
+                    </div>
+                  </div>
+                  <div className="text-center text-sm text-[#676773]">
+                    This car is currently rented
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mb-2">
+                    <label className="block text-xs text-[#676773] mb-1">Select Period</label>
+                    <button
+                      onClick={() => setIsBookingModalOpen(true)}
+                      disabled={car.availability !== "available" || isOwner}
+                      className={`w-full border rounded px-2 py-1 text-sm text-left ${
+                        isOwner 
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : "text-[#1A1A1A] bg-white hover:bg-gray-50 cursor-pointer"
+                      }`}
+                    >
+                      {isOwner ? "You own this car" : "Click to select dates"}
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-1 text-sm mb-2">
+                    <div className="flex justify-between">
+                      <span className="text-[#676773]">Price per day</span>
+                      <span className="text-[#1A1A1A] font-semibold">${car.pricePerDay}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#676773]">Service fee</span>
+                      <span className="text-[#1A1A1A] font-semibold">10%</span>
+                    </div>
+                  </div>
+                  <button
+                    className={`w-full font-bold py-2 rounded transition-colors ${
+                      car.availability === "available"
+                        ? "bg-orange-600 hover:bg-orange-700 text-white"
+                        : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                    }`}
+                    disabled={car.availability !== "available"}
+                    onClick={() => setIsBookingModalOpen(true)}
+                  >
+                    {car.availability === "available" 
+                      ? "Request Rental" 
+                      : car.availability === "maintenance"
+                      ? "Under Maintenance"
+                      : "Not Available"}
+                  </button>
+                </>
+              )}
+            </div>            {/* Owner Info */}
             <div className="flex items-center gap-3 mt-2">
-              <div className="w-10 h-10 rounded-full bg-gray-200" />
+              <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-[#EA580C]">
+                {ownerData?.profilePicture ? (
+                  <Image
+                    src={ownerData.profilePicture}
+                    alt="Owner"
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-[#EA580C] flex items-center justify-center text-white text-sm">
+                    {ownerData?.name?.charAt(0)?.toUpperCase() || "O"}
+                  </div>
+                )}
+              </div>
               <div>
-                <div className="font-semibold text-sm text-black">Mark Williams</div>
-                <div className="flex items-center gap-1 text-xs text-gray-500">
-                  <span>⭐⭐⭐⭐☆</span>
-                  <span>(230 Reviews)</span>
+                <div className="font-semibold text-sm text-black">
+                  {user?.uid === car.ownerId 
+                    ? "Your Car" 
+                    : ownerData?.name || "Car Owner"}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {user?.uid === car.ownerId 
+                    ? "You are the owner" 
+                    : "Owner"}
                 </div>
               </div>
+              {user?.uid === car.ownerId && (
+                <Link
+                  href={`/admin/cars/${car.id}/edit`}
+                  className="ml-auto text-sm text-[#EA580C] hover:text-[#D45207] font-medium"
+                >
+                  Edit Car
+                </Link>
+              )}
             </div>
           </div>
         </div>
-      </div>
-      {/* Booking Modal */}
+      </div>      {/* Booking Modal */}
       {isBookingModalOpen && (
         <BookingModal
           car={car}
           isOpen={isBookingModalOpen}
           onClose={() => setIsBookingModalOpen(false)}
-          onBookingComplete={() => {}}
+          onBookingComplete={handleBookingComplete}
         />
       )}
     </div>

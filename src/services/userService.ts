@@ -22,6 +22,7 @@ export interface User {
   fullName: string;
   email: string;
   passwordHash: string; // Adicionando campo para senha com hash
+  profilePicture?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -89,21 +90,6 @@ export const userService = {
       throw error;
     }
   },
-
-  // Update user profile
-  async updateUser(userId: string, data: Partial<User>): Promise<void> {
-    try {
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
-        ...data,
-        updatedAt: new Date()
-      });
-    } catch (error: unknown) {
-      console.error('Error in updateUser:', error);
-      throw error;
-    }
-  },
-
   // Get user by email
   async getUserByEmail(email: string): Promise<User | null> {
     try {
@@ -121,5 +107,28 @@ export const userService = {
       console.error('Error in getUserByEmail:', error);
       throw error;
     }
-  }
+  },  // Update user profile
+  async updateProfile(data: Partial<{ fullName: string; email: string; profilePicture: string }>): Promise<void> {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('No authenticated user found');
+      }
+
+      const userRef = doc(db, 'users', user.uid);
+      const updateData: Partial<User> = {
+        updatedAt: new Date()
+      };
+
+      // Só inclui os campos que foram fornecidos
+      if (data.fullName !== undefined) updateData.fullName = data.fullName;
+      if (data.profilePicture !== undefined) updateData.profilePicture = data.profilePicture;
+      // Note: email não é atualizado aqui pois requer um fluxo especial de autenticação
+
+      await updateDoc(userRef, updateData);
+    } catch (error: unknown) {
+      console.error('Error in updateProfile:', error);
+      throw error;
+    }
+  },
 };

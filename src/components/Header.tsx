@@ -80,7 +80,20 @@ export default function Header() {
                 className="flex items-center hover:cursor-pointer gap-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
                 onClick={() => setMenuOpen((v) => !v)}
               >
-                <span className="w-[30px] h-[30px] rounded-full bg-[#EA580C] mr-2"></span>
+                <div className="relative w-[32px] h-[32px] rounded-full overflow-hidden border-2 border-[#EA580C]">
+                  {user.profilePicture ? (
+                    <Image
+                      src={user.profilePicture}
+                      alt="Profile"
+                      fill
+                      className="object-cover rounded-full"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-[#EA580C] flex items-center justify-center text-white rounded-full">
+                      {user.fullName?.charAt(0)?.toUpperCase() || "U"}
+                    </div>
+                  )}
+                </div>
                 <span className="font-inter font-semibold text-black">
                   {user.fullName || "User"}
                 </span>
@@ -90,6 +103,13 @@ export default function Header() {
                   <div className="px-4 py-2 font-bold text-black font-inter text-sm select-none">
                     MY ACCOUNT
                   </div>
+                  <Link
+                    href="/admin/profile"
+                    className="block px-4 py-2 text-black font-inter text-sm hover:bg-gray-50 transition-colors"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    My Profile
+                  </Link>
                   <Link
                     href="/admin/cars"
                     className="block px-4 py-2 text-black font-inter text-sm hover:bg-gray-50 transition-colors"
@@ -111,6 +131,7 @@ export default function Header() {
                   >
                     My Rentals
                   </Link>
+                  
                   <div className="border-t my-2" />
                   <button
                     onClick={handleLogout}
@@ -162,13 +183,35 @@ export default function Header() {
                   ref={mobileMenuRef}
                   className="absolute top-[60px] right-0 w-80 bg-white rounded-3xl shadow-2xl border border-gray-200 z-40 py-8 px-6 flex flex-col gap-4 animate-fade-in transition-all"
                   style={{ minWidth: 260 }}
-                >
-                  {/* User Full Name */}
-                  <div className="px-4 py-2 font-bold text-black font-geist text-lg select-none border-b border-gray-200">
-                    {user.fullName || "User"}
+                >                  {/* User Full Name */}                
+                  <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-200">
+                    <div className="relative w-[40px] h-[40px] rounded-full overflow-hidden border-2 border-[#EA580C]">
+                      {user.profilePicture ? (
+                        <Image
+                          src={user.profilePicture}
+                          alt="Profile"
+                          fill
+                          className="object-cover rounded-full"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-[#EA580C] flex items-center justify-center text-white rounded-full">
+                          {user.fullName?.charAt(0)?.toUpperCase() || "U"}
+                        </div>
+                      )}
+                    </div>
+                    <span className="font-bold text-black font-geist text-lg select-none">
+                      {user.fullName || "User"}
+                    </span>
                   </div>
                   
                   {/* Navigation Options */}
+                    <Link
+                    href="/admin/profile"
+                    className="flex items-center gap-3 px-4 py-3 text-black font-geist text-lg font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    My Profile
+                  </Link>
                   <Link
                     href="/admin/cars"
                     className="flex items-center gap-3 px-4 py-3 text-black font-geist text-lg font-medium rounded-lg hover:bg-gray-50 transition-colors"
@@ -190,6 +233,7 @@ export default function Header() {
                   >
                     My Rentals
                   </Link>
+                
                   <button
                     onClick={handleLogout}
                     className="flex items-center gap-3 px-4 py-3 text-red-600 font-geist text-lg font-bold rounded-lg hover:bg-gray-50 transition-colors cursor-pointer w-full text-left"

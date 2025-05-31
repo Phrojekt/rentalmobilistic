@@ -23,6 +23,7 @@ import { imageService } from './imageService';
 
 export interface Car {
   id: string;
+  rentalId?: string; // ID único do aluguel
   name: string;
   brand: string;
   model: string;
@@ -60,7 +61,10 @@ export interface Car {
     startDate: Date;
     endDate: Date;
     totalPrice: number;
+    status?: 'active' | 'cancelled' | 'completed';
   };
+  ownerProfilePicture?: string;
+  ownerName?: string;
 }
 
 // Helper function to convert Firestore document to Car type
@@ -158,16 +162,72 @@ export const carService = {
   },
 
   // Update car availability
-  async updateCarAvailability(carId: string, availability: 'available' | 'rented' | 'maintenance'): Promise<void> {
+  async updateCarAvailability(carId: string, availability: 'available' | 'rented' | 'maintenance'): Promise<boolean> {
     try {
       const carRef = doc(db, 'cars', carId);
-      await updateDoc(carRef, {
+      const carDoc = await getDoc(carRef);
+
+      if (!carDoc.exists()) {
+        throw new Error('Car not found');
+      }      const currentData = carDoc.data();
+
+      // If changing to maintenance or available, cancel all active rentals
+      if (currentData.availability === 'rented' && (availability === 'available' || availability === 'maintenance')) {
+        // Find active rental
+        const rentalsQuery = query(
+          collection(db, 'rentals'),
+          where('carId', '==', carId),
+          where('status', '==', 'active')
+        );
+
+        const rentalsSnapshot = await getDocs(rentalsQuery);
+        
+        // Cancel each active rental
+        if (!rentalsSnapshot.empty) {          const cancelPromises = rentalsSnapshot.docs.map(async (rentalDoc) => {
+              // Find and cancel all active cart items for this car
+            const cartQuery = query(
+              collection(db, 'carts'),
+              where('carId', '==', carId),
+              where('status', 'in', ['confirmed', 'pending'])
+            );
+            
+            const cartSnapshot = await getDocs(cartQuery);
+            const cartCancelPromises = cartSnapshot.docs.map(async (cartDoc) => {
+              await updateDoc(doc(db, 'carts', cartDoc.id), {
+                status: 'cancelled',
+                cancelledAt: new Date()
+              });
+            });
+
+            await Promise.all(cartCancelPromises);
+
+            // Update rental status if it exists
+            if (rentalDoc.exists()) {
+              await updateDoc(doc(db, 'rentals', rentalDoc.id), {
+                status: 'cancelled',
+                cancelledBy: 'owner',
+                cancellationDate: new Date().toISOString(),
+                cancellationReason: availability === 'maintenance' ? 
+                  'Car under maintenance' : 
+                  'Car availability changed by owner'
+              });
+            }
+          });
+
+          await Promise.all(cancelPromises);
+        }
+      }
+
+      // Update car availability
+      await updateDoc(carRef, { 
         availability,
         updatedAt: new Date()
       });
-    } catch (error: Error | unknown) {
-      console.error('Error in updateCarAvailability:', error);
-      throw error instanceof Error ? error : new Error('Erro desconhecido ao atualizar disponibilidade do carro');
+
+      return true;
+    } catch (error) {
+      console.error('Error updating car availability:', error);
+      throw error;
     }
   },
 

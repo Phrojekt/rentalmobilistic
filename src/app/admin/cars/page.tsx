@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { carService } from "@/services/carService";
@@ -8,6 +8,7 @@ import { cartService } from "@/services/cartService";
 import type { Car } from "@/services/carService";
 import Link from "next/link";
 import Image from "next/image";
+import UpdateAvailabilityModal from "@/components/UpdateAvailabilityModal";
 
 // Tipos para as tabs
 type TabType = 'my-cars' | 'rented-cars';
@@ -24,54 +25,87 @@ function AdminCarsPageContent() {
   const [activeTab, setActiveTab] = useState<TabType>(tab as TabType || 'my-cars');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [carFilter, setCarFilter] = useState<'all' | 'active' | 'pending'>('all');
+  const [selectedCarForAvailability, setSelectedCarForAvailability] = useState<Car | null>(null);
+  // Função para carregar os carros
+  const loadUserCars = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      // Carregar carros do usuário
+      const userCars = await carService.getCarsByOwner(user.uid);
+      setCars(userCars);
 
-  useEffect(() => {
-    async function loadUserCars() {
-      if (authLoading) return; // Aguarda o carregamento da autenticação
-
-      if (!user) {
-        router.replace("/login"); // Usa replace ao invés de push para evitar voltar ao dashboard
-        return;
-      }
-
-      try {
-        setLoading(true);
-        // Carregar carros que o usuário cadastrou
-        const userCars = await carService.getCarsByOwner(user.uid);
-        setCars(userCars);        // Carregar carros que o usuário alugou através do cartService
-        const userRentals = await cartService.getConfirmedRentals(user.uid);
-          // Mapear os carros com suas informações de aluguel
-        const rentedCarDetails = await Promise.all(
-          userRentals.map(async rental => {
-            const car = await carService.getCarById(rental.carId);
-            if (car) {
-              return {
-                ...car,
-                rentalInfo: {
-                  startDate: rental.startDate,
-                  endDate: rental.endDate,
-                  totalPrice: rental.totalPrice
-                }
-              } as Car; // Garantir que o tipo está correto
-            }
+      // Carregar aluguéis confirmados (excluindo carros que o usuário é dono e aluguéis cancelados)
+      const userRentals = await cartService.getConfirmedRentals(user.uid);
+      const activeRentals = userRentals.filter(rental => rental.status === 'confirmed');      // Mantém track dos carros já processados
+      const processedCarIds = new Set();
+      
+      const rentedCarDetails = await Promise.all(
+        activeRentals.map(async rental => {
+          // Se já processamos este carro, pula
+          if (processedCarIds.has(rental.carId)) {
             return null;
-          })
-        );
-        // Filtragem com type guard explícito
-        const validRentedCars = rentedCarDetails.filter(
-          (car): car is NonNullable<typeof car> => car !== null
-        );
-        setRentedCars(validRentedCars);
-      } catch (error) {
-        console.error("Erro ao carregar carros:", error);
-      } finally {
-        setLoading(false);
-      }
+          }
+          
+          const car = await carService.getCarById(rental.carId);
+          // Não incluir carros que o usuário é dono ou que não estão mais alugados
+          if (!car || car.ownerId === user.uid || car.availability !== 'rented') {
+            return null;
+          }
+
+          // Marca o carro como processado
+          processedCarIds.add(rental.carId);
+          
+          const status: 'active' | 'cancelled' | 'completed' = 
+            rental.status === 'confirmed' ? 'active' : 
+            rental.status === 'cancelled' ? 'cancelled' : 
+            'completed';
+          
+          return {
+            ...car,
+            rentalId: rental.id,
+            rentalInfo: {
+              startDate: rental.startDate,
+              endDate: rental.endDate,
+              totalPrice: rental.totalPrice,
+              status
+            }
+          };
+        })
+      );
+
+      // Filtra carros nulos e garante que só apareçam carros ativamente alugados
+      const validRentedCars = rentedCarDetails.filter((car): car is NonNullable<typeof car> => 
+        car !== null && car.availability === 'rented'
+      );
+
+      setRentedCars(validRentedCars);
+    } catch (error) {
+      console.error("Erro ao carregar carros:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  // Efeito para carregar os carros quando o componente montar
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!user) {
+      router.replace("/login");
+      return;
     }
 
     loadUserCars();
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, loadUserCars]);
 
+  // Handler para atualização de disponibilidade
+  const handleUpdateAvailability = () => {
+    loadUserCars();
+  };
+
+  // Handler para deletar carro
   const handleDelete = async (carId: string) => {
     if (!user) return;
     if (window.confirm("Tem certeza que deseja excluir este carro?")) {
@@ -94,25 +128,18 @@ function AdminCarsPageContent() {
     );
   }
 
-  // Se não está carregando e não tem usuário, não renderiza nada (redirecionamento já foi feito)
   if (!user) return null;
 
   // Renderiza um carro individual
-  const renderCarCard = (car: Car) => {
-    // Simulação de dados para demo
-
-    // Booking Rate: dias alugados / dias totais do mês (exemplo)
+  const renderCarCard = (car: Car & { rentalId?: string }) => {
     let bookingRate = 0;
     if (car.rentalInfo) {
       const start = new Date(car.rentalInfo.startDate);
       const end = new Date(car.rentalInfo.endDate);
       const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
       bookingRate = Math.min(100, Math.round((days / 30) * 100));
-    }
-
-    return (
-      <div
-        key={car.id}
+    }    return (      <div
+        key={activeTab === 'my-cars' ? car.id : `${car.id}-${car.rentalId || ''}`}
         className="border rounded-lg p-0 bg-white shadow-sm flex flex-col w-full max-w-[320px] ml-0"
       >
         {/* Banner */}
@@ -127,6 +154,27 @@ function AdminCarsPageContent() {
           ) : (
             <div className="flex flex-col items-center justify-center w-full h-full">
               <span className="text-gray-400">No Image</span>
+            </div>
+          )}
+          {/* Owner Profile Picture Overlay - only shown in my-cars tab */}
+          {activeTab === 'my-cars' && (
+            <div className="absolute bottom-2 left-2 flex items-center gap-2 bg-black/50 rounded-full p-1 pr-3">
+              <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white">
+                {car.ownerProfilePicture ? (
+                  <Image
+                    src={car.ownerProfilePicture}
+                    alt="Owner"
+                    width={32}
+                    height={32}
+                    className="object-cover rounded-full"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-[#EA580C] flex items-center justify-center text-white text-sm">
+                    {car.ownerName?.charAt(0)?.toUpperCase() || "O"}
+                  </div>
+                )}
+              </div>
+              <span className="text-white text-sm font-medium">{car.ownerName || 'Owner'}</span>
             </div>
           )}
         </div>
@@ -160,45 +208,69 @@ function AdminCarsPageContent() {
               className="h-2 bg-[#EA580C] rounded"
               style={{ width: `${bookingRate}%` }}
             />
-          </div>
-          {/* Ações */}
+          </div>          {/* Ações */}
           <div className="flex items-center justify-between gap-8 mt-auto">
-            {/* Dropdown de ações */}
-            <div className="relative">
-              <button
-                className="flex items-center gap-1 px-3 py-1 border rounded bg-white text-black font-semibold hover:bg-gray-100 cursor-pointer"
-                onClick={() => setOpenMenuId(openMenuId === car.id ? null : car.id)}
-                type="button"
-              >
-                <span className="material-icons" style={{ fontSize: 18 }}>Manage</span>
-
-              </button>
-              {openMenuId === car.id && (
-                <div className="absolute left-0 top-10 z-10 bg-white border rounded shadow-lg min-w-[180px]">
-                    <Link
-                      href={`/cars/${car.id}`}
-                      className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black"
-                    >
-                      View Details
-                    </Link>
-                    <Link
-                      href={`/admin/cars/${car.id}/edit`}
-                      className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black"
-                    >
-                      Edit Car
-                    </Link>
-                  <button className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black">Update Availability</button>
-                  <button className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black">View Rental History</button>
+            {activeTab === 'my-cars' ? (
+              <>
+                {/* Dropdown de ações - só aparece para carros que o usuário é dono */}
+                <div className="relative">
+                  <button
+                    className="flex items-center gap-1 px-3 py-1 border rounded bg-white text-black font-semibold hover:bg-gray-100 cursor-pointer"
+                    onClick={() => setOpenMenuId(openMenuId === car.id ? null : car.id)}
+                    type="button"
+                  >
+                    <span className="material-icons" style={{ fontSize: 18 }}>Manage</span>
+                  </button>
+                  {openMenuId === car.id && (
+                    <div className="absolute left-0 top-10 z-10 bg-white border rounded shadow-lg min-w-[180px]">
+                      <Link
+                        href={`/cars/${car.id}`}
+                        className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black"
+                      >
+                        View Details
+                      </Link>
+                      <Link
+                        href={`/admin/cars/${car.id}/edit`}
+                        className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black"
+                      >
+                        Edit Car
+                      </Link>
+                      <button 
+                        onClick={() => {
+                          setSelectedCarForAvailability(car);
+                          setOpenMenuId(null);
+                        }}
+                        className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black"
+                      >
+                        Update Availability
+                      </button>
+                      <Link
+                        href={`/admin/cars/${car.id}/history`}
+                        className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-black"
+                        onClick={() => setOpenMenuId(null)}
+                      >
+                        View Rental History
+                      </Link>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            {/* Botão remover direto */}
-            <button
-              className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 font-semibold cursor-pointer"
-              onClick={() => handleDelete(car.id)}
-            >
-              <span className="material-icons text-[18px] text-white">Remove</span>
-            </button>
+                {/* Botão remover direto - só aparece para carros que o usuário é dono */}
+                <button
+                  className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 font-semibold cursor-pointer"
+                  onClick={() => handleDelete(car.id)}
+                >
+                  <span className="material-icons text-[18px] text-white">Remove</span>
+                </button>
+              </>
+            ) : (
+              // Para carros alugados, mostrar apenas um botão para ver detalhes
+              <Link
+                href={`/cars/${car.id}`}
+                className="flex items-center gap-1 px-3 py-1 border rounded bg-white text-black font-semibold hover:bg-gray-100 cursor-pointer"
+              >
+                <span>View Details</span>
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -230,8 +302,7 @@ function AdminCarsPageContent() {
     }
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {items.map(car => renderCarCard(car))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">        {items.map(car => renderCarCard(car))}
       </div>
     );
   };
@@ -245,6 +316,14 @@ function AdminCarsPageContent() {
 
   return (
     <div className="container mx-auto p-6">
+      {selectedCarForAvailability && (
+        <UpdateAvailabilityModal
+          carId={selectedCarForAvailability.id}
+          currentAvailability={selectedCarForAvailability.availability}
+          onClose={() => setSelectedCarForAvailability(null)}
+          onUpdate={handleUpdateAvailability}
+        />
+      )}
       <div className="flex flex-col gap-6">
         <div className="flex justify-between items-center">
           <div className="flex gap-4">
