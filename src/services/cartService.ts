@@ -17,30 +17,43 @@ import {
 import { db } from '../lib/firebase';
 import { carService } from './carService';
 
+export type RentalStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed';
+
 /**
  * Interface que representa um item no carrinho/reserva
  */
 export interface CartItem {
-  /** ID único do item no carrinho */
+  /** Unique ID of the cart item */
   id: string;
-  /** ID do usuário que fez a reserva */
+  /** User ID who made the reservation */
   userId: string;
-  /** ID do carro reservado */
+  /** Car ID being reserved */
   carId: string;
-  /** Data de início da reserva */
+  /** Start date of the reservation */
   startDate: Date;
-  /** Data de fim da reserva */
+  /** End date of the reservation */
   endDate: Date;
-  /** Preço total da reserva incluindo taxa de serviço */
+  /** Total price including service fee */
   totalPrice: number;
-  /** Status atual da reserva */
-  status: 'pending' | 'confirmed' | 'cancelled';
-  /** Data de criação do registro */
+  /** Current status of the reservation */
+  status: RentalStatus;
+  /** Creation timestamp */
   createdAt: Date;
-  /** Data da última atualização */
+  /** Last update timestamp */
   updatedAt: Date;
+  /** Cancellation timestamp if applicable */
+  cancelledAt?: Date;
+  /** Reason for cancellation if applicable */
+  cancellationReason?: string;
+  /** When the rental was confirmed */
+  confirmedAt?: Date;
+  /** When the rental was completed */
+  completedAt?: Date;
+  /** Notes or special requests */
+  notes?: string;
 }
 
+// Helper function to check for rental date overlaps
 const hasBookingOverlap = (
   booking: CartItem,
   startDate: Date,
@@ -65,6 +78,40 @@ const hasBookingOverlap = (
   );
 };
 
+// Helper function to validate rental dates
+const validateRentalDates = (startDate: Date, endDate: Date): void => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const startDateTime = new Date(startDate);
+  const endDateTime = new Date(endDate);
+
+  if (startDateTime < today) {
+    throw new Error('A data de início deve ser a partir de hoje');
+  }
+
+  if (endDateTime <= startDateTime) {
+    throw new Error('A data de devolução deve ser posterior à data de retirada');
+  }
+
+  // Ensure minimum rental period (e.g., 1 day)
+  const minRentalHours = 24;
+  const rentalDuration = endDateTime.getTime() - startDateTime.getTime();
+  const rentalHours = rentalDuration / (1000 * 60 * 60);
+  
+  if (rentalHours < minRentalHours) {
+    throw new Error('O período mínimo de aluguel é de 24 horas');
+  }
+
+  // Ensure maximum rental period (e.g., 30 days)
+  const maxRentalDays = 30;
+  const rentalDays = rentalHours / 24;
+  
+  if (rentalDays > maxRentalDays) {
+    throw new Error(`O período máximo de aluguel é de ${maxRentalDays} dias`);
+  }
+}
+
 const convertToCartItem = (doc: QueryDocumentSnapshot<DocumentData>): CartItem => {
   const data = doc.data();
   return {
@@ -73,7 +120,10 @@ const convertToCartItem = (doc: QueryDocumentSnapshot<DocumentData>): CartItem =
     startDate: (data.startDate as Timestamp).toDate(),
     endDate: (data.endDate as Timestamp).toDate(),
     createdAt: (data.createdAt as Timestamp).toDate(),
-    updatedAt: (data.updatedAt as Timestamp).toDate()
+    updatedAt: (data.updatedAt as Timestamp).toDate(),
+    cancelledAt: data.cancelledAt ? (data.cancelledAt as Timestamp).toDate() : undefined,
+    confirmedAt: data.confirmedAt ? (data.confirmedAt as Timestamp).toDate() : undefined,
+    completedAt: data.completedAt ? (data.completedAt as Timestamp).toDate() : undefined,
   } as CartItem;
 };
 
@@ -83,85 +133,72 @@ export const cartService = {
     carId: string,
     startDate: Date,
     endDate: Date,
-    totalPrice: number
+    totalPrice: number,
+    notes?: string
   ): Promise<CartItem> {
     try {
-      // Validate the car's availability and booking dates
+      // Use a predictable ID that matches security rules
+      const cartId = `${userId}_${carId}`;
+      
+      // Validate the car's availability
       const car = await carService.getCarById(carId);
       if (!car) {
         throw new Error('Carro não encontrado');
       }
       if (car.availability !== 'available') {
         throw new Error('Este carro não está disponível para aluguel no momento');
-      }      // Validate dates      // Normalize dates for comparison using local timezone
-      const startDateTime = new Date(startDate);
-      const endDateTime = new Date(endDate);
-      
-      // Get today's date at local midnight
-      const today = new Date();
-      
-      // Convert all dates to local date strings and back to Date objects
-      // This ensures we're comparing dates in the local timezone
-      const todayStart = new Date(today.toLocaleDateString());
-      const localStartDate = new Date(startDateTime.toLocaleDateString());
-      const localEndDate = new Date(endDateTime.toLocaleDateString());
+      }
 
-      // Debug logs
-      console.log('Today (local):', todayStart);
-      console.log('Start date (local):', localStartDate);
-      console.log('End date (local):', localEndDate);
-
-      // Compare dates using local timestamps
-      const todayTime = todayStart.getTime();
-      const startTime = localStartDate.getTime();      if (startTime < todayTime) {
-        throw new Error('A data de início deve ser hoje ou uma data futura');
-      }
-      if (localEndDate.getTime() < localStartDate.getTime()) {
-        throw new Error('A data de término não pode ser anterior à data de início');
-      }
-      if (localStartDate.getTime() === localEndDate.getTime()) {
-        throw new Error('O período de aluguel deve ser de pelo menos 1 dia');
-      }
+      // Validate rental dates
+      validateRentalDates(startDate, endDate);
 
       // Check for overlapping bookings
       const existingBookings = await this.getCarBookings(carId);
-      const hasOverlap = existingBookings.some(booking => hasBookingOverlap(booking, startDate, endDate));
+      const hasOverlap = existingBookings.some(booking =>
+        hasBookingOverlap(booking, startDate, endDate)
+      );
 
       if (hasOverlap) {
-        throw new Error('Este período já está reservado para este carro');
+        throw new Error('Este carro já está reservado para o período selecionado');
       }
 
-      // Create new cart item
-      const cartItemData: Omit<CartItem, 'id'> = {
+      const now = new Date();
+      
+      // Create base cart item without optional fields
+      const baseCartItem = {
         userId,
         carId,
-        startDate,
-        endDate,
+        startDate: Timestamp.fromDate(startDate),
+        endDate: Timestamp.fromDate(endDate),
         totalPrice,
-        status: 'pending',
-        createdAt: new Date(),
-        updatedAt: new Date()
+        status: 'pending' as const,
+        createdAt: Timestamp.fromDate(now),
+        updatedAt: Timestamp.fromDate(now)
       };
 
-      const cartRef = doc(collection(db, 'carts'));
-      await setDoc(cartRef, {
-        ...cartItemData,
-        startDate: Timestamp.fromDate(cartItemData.startDate),
-        endDate: Timestamp.fromDate(cartItemData.endDate),
-        createdAt: Timestamp.fromDate(cartItemData.createdAt),
-        updatedAt: Timestamp.fromDate(cartItemData.updatedAt)
-      });
+      // Add optional fields only if they are defined
+      const cartItem = {
+        ...baseCartItem,
+        ...(notes ? { notes } : {})
+      };
 
+      // Create the cart item
+      const cartRef = doc(db, 'carts', cartId);
+      await setDoc(cartRef, cartItem);
+
+      // Convert Timestamps back to Dates for the return value
       return {
-        id: cartRef.id,
-        ...cartItemData
+        id: cartId,
+        ...baseCartItem,
+        startDate,
+        endDate,
+        createdAt: now,
+        updatedAt: now,
+        ...(notes ? { notes } : {})
       };
     } catch (error) {
       console.error('Error in addToCart:', error);
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Erro desconhecido ao adicionar ao carrinho');
+      throw error;
     }
   },
 
@@ -184,32 +221,36 @@ export const cartService = {
     }
   },
 
-  async getCarBookings(carId: string): Promise<CartItem[]> {
-    try {
-      const cartRef = collection(db, 'carts');
-      const q = query(
-        cartRef,
-        where('carId', '==', carId),
-        where('status', 'in', ['confirmed', 'pending'])
-      );
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(convertToCartItem);
-    } catch (error) {
-      console.error('Error in getCarBookings:', error);
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Erro desconhecido ao buscar reservas do carro');
-    }
-  },
-
   async updateCartItem(cartItemId: string, data: Partial<CartItem>): Promise<void> {
     try {
       const cartItemRef = doc(db, 'carts', cartItemId);
-      const updateData: { [key: string]: FieldValue | Partial<unknown> | undefined } = {
+      const cartDoc = await getDoc(cartItemRef);
+      
+      if (!cartDoc.exists()) {
+        throw new Error('Rental not found');
+      }
+
+      const currentData = cartDoc.data() as CartItem;
+      const now = new Date();      type UpdateDataValue = string | number | Date | boolean | null | Timestamp | undefined;
+      const updateData: { [key: string]: UpdateDataValue | FieldValue } = {
         ...data,
-        updatedAt: Timestamp.fromDate(new Date())
+        updatedAt: Timestamp.fromDate(now)
       };
+
+      // Add timestamps based on status changes
+      if (data.status) {
+        switch (data.status) {
+          case 'confirmed':
+            updateData.confirmedAt = Timestamp.fromDate(now);
+            break;
+          case 'cancelled':
+            updateData.cancelledAt = Timestamp.fromDate(now);
+            break;
+          case 'completed':
+            updateData.completedAt = Timestamp.fromDate(now);
+            break;
+        }
+      }
 
       // Convert Date objects to Timestamps for Firestore
       if (data.startDate) {
@@ -217,18 +258,34 @@ export const cartService = {
       }
       if (data.endDate) {
         updateData.endDate = Timestamp.fromDate(data.endDate);
-      }
-      if (data.createdAt) {
-        updateData.createdAt = Timestamp.fromDate(data.createdAt);
+      }      // Validate status transitions
+      if (data.status) {
+        if (data.status === currentData.status) {
+          // Allow setting the same status - this is not a transition
+          return;
+        }
+
+        switch (currentData.status) {
+          case 'pending':
+            if (!['confirmed', 'cancelled'].includes(data.status)) {
+              throw new Error('Invalid status transition. Pending rentals can only be confirmed or cancelled.');
+            }
+            break;
+          case 'confirmed':
+            if (!['completed', 'cancelled'].includes(data.status)) {
+              throw new Error('Invalid status transition. Confirmed rentals can only be completed or cancelled.');
+            }
+            break;
+          case 'cancelled':
+          case 'completed':
+            throw new Error(`Cannot update rental in ${currentData.status} status - this is a terminal state.`);
+        }
       }
 
       await updateDoc(cartItemRef, updateData);
     } catch (error) {
       console.error('Error in updateCartItem:', error);
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Erro desconhecido ao atualizar item do carrinho');
+      throw error;
     }
   },
 
@@ -274,6 +331,50 @@ export const cartService = {
       throw new Error('Erro desconhecido ao buscar item do carrinho');
     }
   },
+  async getPendingRentals(carId?: string): Promise<CartItem[]> {
+    try {
+      const cartRef = collection(db, 'carts');
+      const constraints = [
+        where('status', '==', 'pending'),
+        orderBy('createdAt', 'asc') // Get oldest first
+      ];
+      
+      if (carId) {
+        constraints.unshift(where('carId', '==', carId));
+      }
+      
+      const q = query(cartRef, ...constraints);
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(convertToCartItem);
+    } catch (error) {
+      console.error('Error in getPendingRentals:', error);
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Error fetching pending rental requests');
+    }
+  },
+
+  async getCarBookings(carId: string): Promise<CartItem[]> {
+    try {
+      const cartRef = collection(db, 'carts');
+      const q = query(
+        cartRef,
+        where('carId', '==', carId),
+        where('status', 'in', ['confirmed', 'pending']),
+        orderBy('startDate', 'asc')
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(convertToCartItem);
+    } catch (error) {
+      console.error('Error in getCarBookings:', error);
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Error fetching car bookings');
+    }
+  },
+
   async getConfirmedRentals(userId: string): Promise<CartItem[]> {
     try {
       const cartRef = collection(db, 'carts');
@@ -284,28 +385,13 @@ export const cartService = {
         orderBy('startDate', 'desc')
       );
       const querySnapshot = await getDocs(q);
-      
-      // Use um Map para manter apenas o aluguel mais recente de cada carro
-      const latestRentals = new Map<string, CartItem>();
-      
-      querySnapshot.docs.forEach(doc => {
-        const rental = convertToCartItem(doc);
-        const existingRental = latestRentals.get(rental.carId);
-        
-        // Se não existe aluguel para este carro ou se este é mais recente
-        if (!existingRental || rental.startDate > existingRental.startDate) {
-          latestRentals.set(rental.carId, rental);
-        }
-      });
-      
-      // Converte o Map de volta para um array e retorna
-      return Array.from(latestRentals.values());
+      return querySnapshot.docs.map(convertToCartItem);
     } catch (error) {
       console.error('Error in getConfirmedRentals:', error);
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error('Erro desconhecido ao buscar aluguéis confirmados');
+      throw new Error('Error fetching confirmed rentals');
     }
   },
 
@@ -315,17 +401,40 @@ export const cartService = {
       const q = query(
         cartRef,
         where('carId', '==', carId),
-        where('status', '==', 'confirmed'),
+        where('status', 'in', ['confirmed', 'completed', 'cancelled']),
         orderBy('startDate', 'desc')
       );
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(convertToCartItem);
+      
+      // Get all rental data first
+      const rentals = querySnapshot.docs.map(convertToCartItem);
+      
+      // Get user information for each rental
+      const rentalsWithUserInfo = await Promise.all(rentals.map(async (rental) => {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', rental.userId));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            return {
+              ...rental,
+              userName: userData.fullName,
+              userEmail: userData.email
+            };
+          }
+          return rental;
+        } catch (error) {
+          console.warn('Error fetching user info for rental:', error);
+          return rental;
+        }
+      }));
+
+      return rentalsWithUserInfo;
     } catch (error) {
       console.error('Error in getCarRentalHistory:', error);
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error('Erro desconhecido ao buscar histórico de aluguéis');
+      throw new Error('Error fetching rental history');
     }
   }
 };

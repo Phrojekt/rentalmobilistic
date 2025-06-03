@@ -5,5 +5,5 @@ export interface Rental {
   startDate: Date;
   endDate: Date;
   totalPrice: number;
-  status: 'active' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
 }

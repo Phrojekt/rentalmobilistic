@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { userService } from "@/services/userService";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Messages from "./Messages";
 
 export default function Header() {
   const { user, loading } = useAuth();
@@ -55,300 +56,110 @@ export default function Header() {
 
   return (
     <header className="flex w-full h-[80px] justify-center items-center bg-white border-b border-[#D4D4D4]">
-      <div className="flex w-[1240px] h-[60px] justify-between items-center px-5">
-        {/* Logo da Navbar */}
-        <Link href={user ? "/cars" : "/"} className="flex items-center gap-2">
-          <Image
-            src="/RentalIcon.png"
-            alt="Rental Mobilistic Logo"
-            width={36}
-            height={36}
-            className="object-contain"
-            priority
-          />
-          <span className="text-[#EA580C] font-geist text-lg font-black">
-            Rental Mobilistic
-          </span>
+      <div className="flex w-[1240px] h-[60px] justify-between items-center px-5">        <Link href="/" className="flex items-center">
+          <div className="flex items-center gap-2">            <Image
+              src="/RentalIcon.png"
+              alt="Rental Icon"
+              width={28}
+              height={28}
+              className="w-auto h-7"
+            />
+            <span className="text-[#EA580C] font-geist text-lg font-black">
+              Rental Mobilistic
+            </span>
+          </div>
         </Link>
 
-        {/* Navegação */}
-        {user ? (
-          <>
-            {/* Desktop menu */}
-            <div className="hidden md:block relative" ref={desktopMenuRef}>
-              <button
-                className="flex items-center hover:cursor-pointer gap-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-                onClick={() => setMenuOpen((v) => !v)}
-              >
-                <div className="relative w-[32px] h-[32px] rounded-full overflow-hidden border-2 border-[#EA580C]">
-                  {user.profilePicture ? (
-                    <Image
-                      src={user.profilePicture}
-                      alt="Profile"
-                      fill
-                      className="object-cover rounded-full"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-[#EA580C] flex items-center justify-center text-white rounded-full">
-                      {user.fullName?.charAt(0)?.toUpperCase() || "U"}
-                    </div>
-                  )}
-                </div>
-                <span className="font-inter font-semibold text-black">
-                  {user.fullName || "User"}
-                </span>
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 z-50 py-2">
-                  <div className="px-4 py-2 font-bold text-black font-inter text-sm select-none">
-                    MY ACCOUNT
+        <div className="flex items-center">
+          {user ? (
+            <div className="flex items-center">
+              <div className="relative" ref={desktopMenuRef}>
+                <button
+                  ref={buttonRef}
+                  onClick={() => setMenuOpen(!menuOpen)}
+                  className="flex items-center space-x-2 text-black hover:text-[#EA580C] font-inter"
+                >
+                  <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-100 border border-gray-200">
+                    {user.profilePicture ? (
+                      <Image
+                        src={user.profilePicture}
+                        alt="Profile"
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-[#EA580C] text-white">
+                        {user.fullName?.[0]?.toUpperCase() || "U"}
+                      </div>
+                    )}
                   </div>
-                  <Link
-                    href="/admin/profile"
-                    className="block px-4 py-2 text-black font-inter text-sm hover:bg-gray-50 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    My Profile
-                  </Link>
-                  <Link
-                    href="/admin/cars"
-                    className="block px-4 py-2 text-black font-inter text-sm hover:bg-gray-50 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Dashboard | My Cars
-                  </Link>
-                  <Link
-                    href="/admin/cars/new"
-                    className="block px-4 py-2 text-black font-inter text-sm hover:bg-gray-50 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Register New Car
-                  </Link>
-                  <Link
-                    href={{ pathname: "/admin/cars", query: { tab: "rented-cars" } }}
-                    className="block px-4 py-2 text-black font-inter text-sm hover:bg-gray-50 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    My Rentals
-                  </Link>
-                  
-                  <div className="border-t my-2" />
-                  <button
-                    onClick={handleLogout}
-                    className="block cursor-pointer w-full text-left px-4 py-2 text-red-600 font-inter text-sm font-semibold hover:bg-gray-50 transition-colors"
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
+                  <span className="font-inter font-semibold text-black">{user.fullName || user.email}</span>
+                </button>
 
-            {/* Mobile layout: apenas Hamburguer */}
-            <div className="md:hidden ml-auto flex items-center relative">
-              {/* Hamburguer Menu */}
-              <button
-                ref={buttonRef}
-                onClick={() => setMenuOpen((v) => !v)}
-                className="p-2 rounded hover:bg-gray-100 transition-colors z-50 cursor-pointer"
-                aria-label={menuOpen ? "Close menu" : "Open menu"}
-              >
-                {menuOpen ? (
-                  <svg
-                    width="32"
-                    height="32"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    className="cursor-pointer hover:opacity-80 transition-opacity"
-                  >
-                    <line x1="6" y1="6" x2="18" y2="18" stroke="#EA580C" strokeWidth="2" strokeLinecap="round"/>
-                    <line x1="18" y1="6" x2="6" y2="18" stroke="#EA580C" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                ) : (
-                  <svg
-                    width="32"
-                    height="32"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    className="cursor-pointer hover:opacity-80 transition-opacity"
-                  >
-                    <rect y="4" width="24" height="2" rx="1" fill="#EA580C"/>
-                    <rect y="11" width="24" height="2" rx="1" fill="#EA580C"/>
-                    <rect y="18" width="24" height="2" rx="1" fill="#EA580C"/>
-                  </svg>
-                )}
-              </button>
-              
-              {menuOpen && (
-                <div
-                  ref={mobileMenuRef}
-                  className="absolute top-[60px] right-0 w-80 bg-white rounded-3xl shadow-2xl border border-gray-200 z-40 py-8 px-6 flex flex-col gap-4 animate-fade-in transition-all"
-                  style={{ minWidth: 260 }}
-                >                  {/* User Full Name */}                
-                  <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-200">
-                    <div className="relative w-[40px] h-[40px] rounded-full overflow-hidden border-2 border-[#EA580C]">
-                      {user.profilePicture ? (
-                        <Image
-                          src={user.profilePicture}
-                          alt="Profile"
-                          fill
-                          className="object-cover rounded-full"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-[#EA580C] flex items-center justify-center text-white rounded-full">
-                          {user.fullName?.charAt(0)?.toUpperCase() || "U"}
-                        </div>
-                      )}
+                {menuOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="px-4 py-2 font-bold text-black font-inter text-sm">
+                      MY ACCOUNT
                     </div>
-                    <span className="font-bold text-black font-geist text-lg select-none">
-                      {user.fullName || "User"}
-                    </span>
-                  </div>
-                  
-                  {/* Navigation Options */}
                     <Link
-                    href="/admin/profile"
-                    className="flex items-center gap-3 px-4 py-3 text-black font-geist text-lg font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    My Profile
-                  </Link>
-                  <Link
-                    href="/admin/cars"
-                    className="flex items-center gap-3 px-4 py-3 text-black font-geist text-lg font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Dashboard | My Cars
-                  </Link>
-                  <Link
-                    href="/admin/cars/new"
-                    className="flex items-center gap-3 px-4 py-3 text-black font-geist text-lg font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Register New Car
-                  </Link>
-                  <Link
-                    href={{ pathname: "/admin/cars", query: { tab: "rented-cars" } }}
-                    className="flex items-center gap-3 px-4 py-3 text-black font-geist text-lg font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    My Rentals
-                  </Link>
-                
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-3 px-4 py-3 text-red-600 font-geist text-lg font-bold rounded-lg hover:bg-gray-50 transition-colors cursor-pointer w-full text-left"
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
+                      href="/admin/profile"
+                      className="block px-4 py-2 text-black font-inter text-sm hover:bg-gray-50"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      My Profile
+                    </Link>
+                    <Link
+                      href="/admin/cars"
+                      className="block px-4 py-2 text-black font-inter text-sm hover:bg-gray-50"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Dashboard | My Cars
+                    </Link>
+                    <Link
+                      href="/admin/cars/new"
+                      className="block px-4 py-2 text-black font-inter text-sm hover:bg-gray-50"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Register New Car
+                    </Link>
+                    <Link
+                      href={{ pathname: "/admin/cars", query: { tab: "rented-cars" } }}
+                      className="block px-4 py-2 text-black font-inter text-sm hover:bg-gray-50"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      My Rentals
+                    </Link>
+                    <div className="border-t my-2" />
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-red-600 font-inter text-sm hover:bg-gray-50"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="ml-4">
+                <Messages />
+              </div>
             </div>
-          </>
-        ) : (
-          <>
-            {/* Botões normais em telas md+ */}
-            <div className="hidden md:flex items-center gap-2 ml-auto">
+          ) : (
+            <div className="flex items-center space-x-4">
               <Link
                 href="/login"
-                className="flex h-10 px-5 items-center gap-2 rounded-lg bg-white text-black font-geist text-base font-bold hover:bg-gray-50 transition-colors"
+                className="text-black hover:text-[#EA580C] font-inter text-base"
               >
-                <Image
-                  src="/Login_Icon.png"
-                  alt="Login Icon"
-                  width={26}
-                  height={26}
-                  className="object-contain"
-                />
                 Login
               </Link>
               <Link
                 href="/register"
-                className="flex h-9 px-4 items-center gap-2 rounded-lg bg-[#EA580C] text-white font-geist text-sm font-bold hover:bg-[#D45207] transition-colors"
+                className="bg-[#EA580C] text-white px-4 py-2 rounded-lg font-inter text-base hover:bg-[#EA580C]/90"
               >
-                <Image
-                  src="/Add_user_WhiteIcon.png"
-                  alt="Register Icon"
-                  width={20}
-                  height={20}
-                  quality={100}
-                  className="object-contain"
-                />
                 Register
               </Link>
             </div>
-            {/* Hamburguer menu em telas pequenas */}
-            <div className="md:hidden ml-auto flex items-center relative">
-              <button
-                ref={buttonRef}
-                onClick={() => setMenuOpen((v) => !v)}
-                className={`p-2 rounded hover:bg-gray-100 transition-colors z-50 cursor-pointer`}
-                aria-label={menuOpen ? "Close menu" : "Open menu"}
-              >
-                {menuOpen ? (
-                  <svg
-                    width="32"
-                    height="32"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    className="cursor-pointer hover:opacity-80 transition-opacity"
-                  >
-                    <line x1="6" y1="6" x2="18" y2="18" stroke="#EA580C" strokeWidth="2" strokeLinecap="round"/>
-                    <line x1="18" y1="6" x2="6" y2="18" stroke="#EA580C" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                ) : (
-                  <svg
-                    width="32"
-                    height="32"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    className="cursor-pointer hover:opacity-80 transition-opacity"
-                  >
-                    <rect y="4" width="24" height="2" rx="1" fill="#EA580C"/>
-                    <rect y="11" width="24" height="2" rx="1" fill="#EA580C"/>
-                    <rect y="18" width="24" height="2" rx="1" fill="#EA580C"/>
-                  </svg>
-                )}
-              </button>
-              {menuOpen && (
-                <div
-                  ref={mobileMenuRef}
-                  className="absolute top-[60px] right-0 w-80 bg-white rounded-3xl shadow-2xl border border-gray-200 z-40 py-8 px-6 flex flex-col gap-4 animate-fade-in transition-all"
-                  style={{ minWidth: 260 }}
-                >
-                  <Link
-                    href="/login"
-                    className="flex items-center gap-3 px-4 py-3 text-black font-geist text-lg font-bold rounded-lg hover:bg-gray-50 transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <Image
-                      src="/Login_Icon.png"
-                      alt="Login Icon"
-                      width={26}
-                      height={26}
-                      className="object-contain"
-                    />
-                    Login
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="flex items-center gap-3 px-4 py-3 text-white font-geist text-lg font-bold rounded-lg bg-[#EA580C] hover:bg-[#D45207] transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <Image
-                      src="/Add_user_WhiteIcon.png"
-                      alt="Register Icon"
-                      width={24}
-                      height={24}
-                      quality={100}
-                      className="object-contain"
-                    />
-                    Register
-                  </Link>
-                </div>
-              )}
-            </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </header>
   );

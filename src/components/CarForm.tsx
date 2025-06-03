@@ -1,13 +1,43 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { useState } from "react";
 import { Car } from "@/services/carService";
 import { useAuth } from "@/hooks/useAuth";
 import { Switch } from "@headlessui/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
+
+const BRAZILIAN_STATES = [
+  { name: "Acre", uf: "AC" },
+  { name: "Alagoas", uf: "AL" },
+  { name: "Amapá", uf: "AP" },
+  { name: "Amazonas", uf: "AM" },
+  { name: "Bahia", uf: "BA" },
+  { name: "Ceará", uf: "CE" },
+  { name: "Distrito Federal", uf: "DF" },
+  { name: "Espírito Santo", uf: "ES" },
+  { name: "Goiás", uf: "GO" },
+  { name: "Maranhão", uf: "MA" },
+  { name: "Mato Grosso", uf: "MT" },
+  { name: "Mato Grosso do Sul", uf: "MS" },
+  { name: "Minas Gerais", uf: "MG" },
+  { name: "Pará", uf: "PA" },
+  { name: "Paraíba", uf: "PB" },
+  { name: "Paraná", uf: "PR" },
+  { name: "Pernambuco", uf: "PE" },
+  { name: "Piauí", uf: "PI" },
+  { name: "Rio de Janeiro", uf: "RJ" },
+  { name: "Rio Grande do Norte", uf: "RN" },
+  { name: "Rio Grande do Sul", uf: "RS" },
+  { name: "Rondônia", uf: "RO" },
+  { name: "Roraima", uf: "RR" },
+  { name: "Santa Catarina", uf: "SC" },
+  { name: "São Paulo", uf: "SP" },
+  { name: "Sergipe", uf: "SE" },
+  { name: "Tocantins", uf: "TO" }
+];
 
 const CAR_FEATURES = [
   { id: "airConditioning", label: "Air conditioning" },
@@ -37,7 +67,8 @@ const carFormSchema = z.object({
   model: z.string().min(2, "Model is required"),
   year: z.coerce.number().min(1900, "Year must be at least 1900"),
   pricePerDay: z.coerce.number().min(1, "Price per day is required"),
-  locationCity: z.string().min(2, "City is required"),
+  locationCity: z.string().min(2, "City must be at least 2 characters"),
+  locationState: z.string().min(2, "State must be at least 2 characters").max(2, "State must be a 2-letter code"),
   category: z.string().min(1, "Category is required"),
   transmission: z.enum(["automatic", "manual"]),
   fuel: z.enum(["gasoline", "diesel", "electric", "hybrid"]),
@@ -57,6 +88,7 @@ const carFormSchema = z.object({
   securityDeposit: z.coerce.number().min(0, "Security deposit is required"),
   deliveryOptions: z.enum(["pickup", "delivery", "both"]),
   features: z.array(z.string()).min(1, "Select at least one feature"),
+  termsAccepted: z.boolean().refine(val => val === true, "You must accept the terms and conditions"),
 });
 
 type CarFormType = z.infer<typeof carFormSchema>;
@@ -79,11 +111,16 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("basic-info");
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [validationAlert, setValidationAlert] = useState(""); // Add validation alert state
+  const [showImageModal, setShowImageModal] = useState(false);  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [validationAlert, setValidationAlert] = useState("");
+  const [stateSearch, setStateSearch] = useState("");
+  const [showStateList, setShowStateList] = useState(false);
+  
+  const filteredStates = BRAZILIAN_STATES.filter(state => 
+    state.name.toLowerCase().includes(stateSearch.toLowerCase()) ||
+    state.uf.toLowerCase().includes(stateSearch.toLowerCase())
+  );
 
-  // Fix 1: Add runtime validation using the schema
   const {
     register,
     handleSubmit,
@@ -93,20 +130,18 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
     watch,
   } = useForm<CarFormType>({
     defaultValues: {
-      name: "",
       brand: "",
       model: "",
       year: new Date().getFullYear(),
-      price: 0,
       pricePerDay: 0,
-      mileage: 0,
+      locationCity: "",
+      locationState: "",
       category: "",
       transmission: "automatic",
       fuel: "gasoline",
       seats: 5,
       description: "",
       images: [],
-      locationCity: "",
       availability: "available",
       availabilitySchedule: "always",
       instantBooking: false,
@@ -115,92 +150,103 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
       securityDeposit: 0,
       deliveryOptions: "pickup",
       features: [],
+      termsAccepted: false,
       ...initialData,
     },
-    resolver: zodResolver(carFormSchema) // Add this line to use the schema for validation
+    resolver: zodResolver(carFormSchema)
   });
 
   const images = watch("images");
   const features = watch("features");
 
-  const removeImage = (idx: number) =>
+  const removeImage = (idx: number) => {
     setValue(
       "images",
       images.filter((img, i) => i !== idx && img)
     );
-
-  // Fix 2: Replace 'any' with a more specific type
-  async function submitHandler(data: CarFormType) {
-    setError("");
-    setLoading(true);
-
-    // Filtra imagens vazias antes de enviar
-    data.images = data.images.filter(img => img);
-
-    // Aguarda validação do react-hook-form
-    const isValid = Object.keys(errors).length === 0;
-    if (!isValid) {
-      // Mapeia campos para abas
-      const fieldToTab: Record<string, string> = {
-        brand: "basic-info",
-        model: "basic-info",
-        year: "basic-info",
-        pricePerDay: "basic-info",
-        locationCity: "basic-info",
-        category: "basic-info",
-        transmission: "basic-info",
-        fuel: "basic-info",
-        seats: "basic-info",
-        description: "basic-info",
-        features: "features",
-        availabilitySchedule: "availability",
-        minRentalPeriod: "availability",
-        maxRentalPeriod: "availability",
-        securityDeposit: "availability",
-        deliveryOptions: "availability",
-        images: "photos",
-      };
-      // Encontra o primeiro campo com erro
-      const firstErrorField = Object.keys(errors)[0];
-      if (firstErrorField && fieldToTab[firstErrorField]) {
-        setActiveTab(fieldToTab[firstErrorField]);
-        setTimeout(() => {
-          const el = document.querySelector(`[name="${firstErrorField}"]`);
-          if (el) {
-            (el as HTMLElement).focus();
-            el.classList.add("border-red-500", "focus:border-red-500");
-          }
-        }, 100);
-      }
-      return;
-    }
-
+  };
+  const submitHandler = async (data: CarFormType) => {
+    if (loading) return;
     try {
-      await onSubmit({
-        ...data,
-        name: `${data.brand} ${data.model}`,
-        price: data.pricePerDay * 30, // Preço mensal estimado
-        mileage: 0, // Mileage inicial
+      setError("");
+      setLoading(true);
+      setValidationAlert("");
+
+      if (!user?.uid) {
+        throw new Error("You must be logged in to register a car");
+      }
+
+      // Validação dos campos obrigatórios
+      if (!data.brand || !data.model) {
+        setValidationAlert("Brand and model are required");
+        setLoading(false);
+        return;
+      }
+
+      if (!data.images?.length) {
+        setValidationAlert("At least one image is required");
+        setLoading(false);
+        return;
+      }
+
+      if (!data.locationCity || !data.locationState) {
+        setValidationAlert("Location information is required");
+        setLoading(false);
+        return;
+      }
+
+      // Limpeza e validação de imagens
+      const cleanedImages = data.images.filter(Boolean);
+      if (!cleanedImages.length) {
+        setValidationAlert("Invalid images. Please try uploading again");
+        setLoading(false);
+        return;
+      }
+
+      // Prepara os dados do carro
+      const carData: Omit<Car, 'id' | 'createdAt' | 'updatedAt'> = {
+        name: `${data.brand} ${data.model}`.trim(),
+        brand: data.brand,
+        model: data.model,
+        year: data.year,
+        price: 0, // Campo calculado
+        pricePerDay: data.pricePerDay,
+        mileage: 0, // Campo calculado
         location: {
-          city: data.locationCity,
-          state: "", // Estado será adicionado depois
-          country: "Brasil",
+          city: data.locationCity.trim(),
+          state: data.locationState,
+          country: 'BR'
         },
-        ownerId: user?.uid || "",
-      } as unknown as Omit<Car, "id" | "createdAt" | "updatedAt">);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Error saving the car";
-      setError(errorMessage);
+        category: data.category,
+        transmission: data.transmission,
+        fuel: data.fuel,
+        seats: data.seats,
+        description: data.description.trim(),
+        features: data.features,
+        images: cleanedImages,
+        availability: data.availability,
+        availabilitySchedule: data.availabilitySchedule,
+        instantBooking: data.instantBooking,
+        minRentalPeriod: data.minRentalPeriod,
+        maxRentalPeriod: data.maxRentalPeriod,
+        securityDeposit: data.securityDeposit,
+        deliveryOptions: data.deliveryOptions,
+        ownerId: user.uid
+      };
+
+      await onSubmit(carData);
+    } catch (err) {
+      console.error("Error submitting form:", err);
+      setError(err instanceof Error ? err.message : "Failed to register car. Please try again.");
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  // Add validation function for each tab
   const validateCurrentTab = async () => {
     const currentValues = getValues();
     const fieldsByTab = {
-      "basic-info": ["brand", "model", "year", "pricePerDay", "locationCity", "category", "transmission", "fuel", "seats", "description"],
+      "basic-info": ["brand", "model", "year", "pricePerDay", "locationCity", "locationState", "category", "transmission", "fuel", "seats", "description"],
       "features": ["features"],
       "availability": ["availabilitySchedule", "minRentalPeriod", "maxRentalPeriod", "securityDeposit", "deliveryOptions"],
       "photos": ["images"]
@@ -208,83 +254,59 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
 
     const fieldsToValidate = fieldsByTab[activeTab as keyof typeof fieldsByTab] || [];
     const emptyFields: string[] = [];
-    const fieldLabels: Record<string, string> = {
-      brand: "Brand",
-      model: "Model", 
-      year: "Year",
-      pricePerDay: "Price per Day",
-      locationCity: "Location",
-      category: "Category",
-      transmission: "Transmission",
-      fuel: "Fuel",
-      seats: "Number of Seats",
-      description: "Description",
-      features: "Features",
-      availabilitySchedule: "Availability Schedule",
-      minRentalPeriod: "Minimum Rental Period",
-      maxRentalPeriod: "Maximum Rental Period", 
-      securityDeposit: "Security Deposit",
-      deliveryOptions: "Delivery Options",
-      images: "Images"
-    };
 
-    // Check each field for this tab
     for (const field of fieldsToValidate) {
       const value = currentValues[field as keyof CarFormType];
-      
-      if (field === "features" && (!value || (Array.isArray(value) && value.length === 0))) {
+      if (!value) {
         emptyFields.push(field);
-      } else if (field === "images" && (!value || (Array.isArray(value) && value.filter(img => img).length === 0))) {
+      } else if (field === "features" && Array.isArray(value) && value.length === 0) {
         emptyFields.push(field);
-      } else if (field !== "features" && field !== "images" && (!value || value === "" || value === 0)) {
+      } else if (field === "images" && Array.isArray(value) && value.filter(img => img).length === 0) {
+        emptyFields.push(field);
+      } else if (typeof value === 'string' && !value.trim()) {
+        emptyFields.push(field);
+      } else if ((field === 'pricePerDay' || field === 'securityDeposit') && value === 0) {
         emptyFields.push(field);
       }
     }
 
     if (emptyFields.length > 0) {
-      // Show validation alert
-      const fieldNames = emptyFields.map(field => fieldLabels[field]).join(", ");
-      setValidationAlert(`Please fill in the following required fields: ${fieldNames}`);
-      
-      // Add red border to empty fields
-      emptyFields.forEach(field => {
-        setTimeout(() => {
-          const element = document.querySelector(`[name="${field}"]`) || 
-                        document.querySelector(`input[value="${field}"]`) ||
-                        document.querySelector(`#${field}`);
-          if (element) {
-            element.classList.add("!border-red-500", "!focus:border-red-500");
-            // Remove red border after 5 seconds
-            setTimeout(() => {
-              element.classList.remove("!border-red-500", "!focus:border-red-500");
-            }, 5000);
-          }
-        }, 100);
-      });
-
+      setValidationAlert(`Please fill in the following required fields: ${emptyFields.join(", ")}`);
       return false;
     }
 
     setValidationAlert("");
     return true;
   };
+  // Close state suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showStateList && !(event.target as HTMLElement).closest('.state-selector')) {
+        setShowStateList(false);
+      }
+    };
 
-  // Update nextTab function
-  async function nextTab() {
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showStateList]);
+
+  const nextTab = async () => {
     const isValid = await validateCurrentTab();
-    if (!isValid) {
-      return;
-    }
+    if (!isValid) return;
     
     const idx = TABS.findIndex(t => t.key === activeTab);
-    if (idx < TABS.length - 1) setActiveTab(TABS[idx + 1].key);
-  }
+    if (idx < TABS.length - 1) {
+      setActiveTab(TABS[idx + 1].key);
+    }
+  };
 
-  function prevTab() {
-    setValidationAlert(""); // Clear validation alert when going back
+  const prevTab = () => {
+    setValidationAlert("");
     const idx = TABS.findIndex(t => t.key === activeTab);
-    if (idx > 0) setActiveTab(TABS[idx - 1].key);
-  }
+    if (idx > 0) {
+      setActiveTab(TABS[idx - 1].key);
+    }
+  };
 
   return (
     <div>
@@ -295,7 +317,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
         </p>
       </div>
       
-      {/* Container cinza apenas para as abas */}
+      {/* Tabs Navigation */}
       <div className="flex justify-center">
         <div className="bg-gray-100 rounded-lg px-2 md:px-6 py-4 mb-0 relative w-full max-w-6xl overflow-x-auto">
           <div className="flex-nowrap flex justify-around md:justify-between gap-2 md:gap-4 relative z-10 min-w-[400px]">
@@ -303,17 +325,27 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
               <button
                 type="button"
                 key={tab.key}
-                className={
-                  `whitespace-nowrap px-6 py-2 font-bold text-black transition-colors
+                className={`whitespace-nowrap px-6 py-2 font-bold text-black transition-colors
                   ${activeTab === tab.key
                     ? "bg-white text-[#EA580C] shadow z-20"
-                    : "bg-transparent text-black border border-transparent"}
-                  hover:cursor-pointer`
-                }
+                    : "bg-transparent text-black border border-transparent"
+                  }
+                  hover:cursor-pointer`}
                 style={activeTab === tab.key ? { position: "relative", top: "0px" } : {}}
-                onClick={() => {
-                  setValidationAlert(""); // Clear validation alert when switching tabs
-                  setActiveTab(tab.key);
+                onClick={async () => {
+                  if (tab.key === activeTab) return;
+                  // Allow going back without validation
+                  if (TABS.findIndex(t => t.key === tab.key) < TABS.findIndex(t => t.key === activeTab)) {
+                    setValidationAlert("");
+                    setActiveTab(tab.key);
+                    return;
+                  }
+                  // For forward navigation, validate current tab first
+                  const isValid = await validateCurrentTab();
+                  if (isValid) {
+                    setValidationAlert("");
+                    setActiveTab(tab.key);
+                  }
                 }}
               >
                 {tab.label}
@@ -323,7 +355,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
         </div>
       </div>
 
-      {/* Formulário fora do container cinza */}
+      {/* Form Content */}
       <form onSubmit={handleSubmit(submitHandler)} className="space-y-6 px-2 md:px-6 pt-6 max-w-6xl mx-auto">
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -331,7 +363,6 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
           </div>
         )}
 
-        {/* Add validation alert */}
         {validationAlert && (
           <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded flex items-center">
             <svg className="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -341,7 +372,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
           </div>
         )}
 
-        {/* Basic Info */}
+        {/* Basic Info Tab */}
         {activeTab === "basic-info" && (
           <div className="space-y-6 border border-black rounded-lg p-6 bg-white">
             <h2 className="text-black text-xl font-bold mb-4">Car Details</h2>
@@ -372,18 +403,63 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
               </div>
             </div>
             {/* Location */}
-            <div>
-              <label className="text-black block text-sm font-medium">Location *</label>
-              <input
-                {...register("locationCity")}
-                placeholder="City"
-                className="text-black mt-1 block w-full rounded border border-gray-300 p-2"
-              />
-              {errors.locationCity && (
-                <span className="text-red-600 text-xs">
-                  {errors.locationCity.message}
-                </span>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-black block text-sm font-medium">City *</label>                <input
+                  {...register("locationCity")}
+                  placeholder="Enter your city (e.g., São Paulo)"
+                  className="text-black mt-1 block w-full rounded border border-gray-300 p-2"
+                />
+                <p className="mt-1 text-xs text-gray-500">Enter the city where your car is located</p>
+                {errors.locationCity && (
+                  <span className="text-red-600 text-xs">
+                    {errors.locationCity.message}
+                  </span>
+                )}
+              </div>              <div>
+                <label className="text-black block text-sm font-medium">State *</label>
+                <div className="relative state-selector">
+                  <input
+                    type="text"
+                    value={stateSearch}
+                    onChange={(e) => {
+                      setStateSearch(e.target.value);
+                      setShowStateList(true);
+                    }}
+                    onFocus={() => setShowStateList(true)}
+                    placeholder="Type state name (e.g., São Paulo)"
+                    className="text-black mt-1 block w-full rounded border border-gray-300 p-2"
+                  />
+                  {showStateList && filteredStates.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {filteredStates.map((state) => (
+                        <div
+                          key={state.uf}
+                          className="text-black px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                          onClick={() => {
+                            setValue("locationState", state.uf);
+                            setStateSearch(state.name);
+                            setShowStateList(false);
+                          }}
+                        >
+                          <span className="font-medium">{state.name}</span>
+                          <span className="text-gray-500 ml-2">({state.uf})</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <input
+                    type="hidden"
+                    {...register("locationState")}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Start typing the state name to see suggestions</p>
+                {errors.locationState && (
+                  <span className="text-red-600 text-xs">
+                    {errors.locationState.message}
+                  </span>
+                )}
+              </div>
             </div>
             {/* Category - Transmission - Fuel */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -456,7 +532,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
           </div>
         )}
 
-        {/* Features */}
+        {/* Features Tab */}
         {activeTab === "features" && (
           <div className="space-y-6 border border-black rounded-lg p-6 bg-white">
             <h2 className="text-black text-xl font-bold mb-2">Car Features</h2>
@@ -505,7 +581,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
           </div>
         )}
 
-        {/* Availability */}
+        {/* Availability Tab */}
         {activeTab === "availability" && (
           <div className="space-y-6 border border-black rounded-lg p-6 bg-white">
             <h2 className="text-black text-xl font-bold mb-2">Availability & Rental Terms</h2>
@@ -536,12 +612,16 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                 <span className="text-red-600 text-xs">{errors.availabilitySchedule.message}</span>
               )}
             </div>
-            {/* Instant Booking Toggle */}
-            <div className="flex items-center py-4 border-t border-b">
+            {/* Instant Booking Toggle */}            <div className="flex items-center py-4 border-t border-b">
               <div className="flex-1">
                 <div className="text-black text-base font-bold mb-1">Instant Booking</div>
                 <div className="text-gray-500 text-sm font-normal">
-                  Allow renters to book your car instantly without requiring your approval.
+                  <p className="mb-2">Allow renters to book your car instantly without requiring your approval.</p>
+                  <p className="text-xs">
+                    {watch("instantBooking") ? 
+                      "✓ Renters can instantly book your car. This can increase your bookings!" :
+                      "✗ You'll receive a notification and must approve each booking request."}
+                  </p>
                 </div>
               </div>
               <Switch
@@ -641,7 +721,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
           </div>
         )}
 
-        {/* Photos */}
+        {/* Photos Tab */}
         {activeTab === "photos" && (
           <div className="space-y-6 border border-black rounded-lg p-6 bg-white">
             <h2 className="text-black text-xl font-bold mb-2">Car Photos</h2>
@@ -671,17 +751,22 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        if (event.target?.result) {
-                          const imgUrl = event.target.result.toString();
-                          // Ao adicionar uma imagem:
-                          setValue("images", [...images.filter(img => img), imgUrl]);
-                        }
-                      };
-                      reader.readAsDataURL(file);
+                    if (!file) return;
+                    
+                    // Validate file size
+                    if (file.size > 5 * 1024 * 1024) { // 5MB
+                      setValidationAlert("Image size must be less than 5MB");
+                      return;
                     }
+
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      const result = event.target?.result;
+                      if (typeof result === 'string') {
+                        setValue("images", [...images.filter(img => img), result]);
+                      }
+                    };
+                    reader.readAsDataURL(file);
                   }} 
                 />
               </div>
@@ -810,171 +895,128 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
               </button>
             </div>
           </div>
-        )}
-
-        {/* Preview */}
+        )}        {/* Preview Tab */}
         {activeTab === "preview" && (
-          <div className="space-y-6 border border-black rounded-lg p-6 bg-white">
-            <div className="rounded-lg border">
-              <div className="p-6 border-b">
-                <h2 className="text-xl font-semibold text-black">Listing Preview</h2>
-                <p className="text-sm text-gray-500 mt-1">Review your car listing before submitting</p>
-              </div>
-
-              <div className="p-6">
-                {images.filter(img => img).length > 0 ? (
-                  <div className="mb-6 overflow-hidden rounded-lg">
-                    <div className="relative h-64 w-full">
-                      <Image
-                        src={images.filter(img => img)[0]}
-                        alt="Car preview"
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
+          <div className="space-y-6">            <div className="p-6 rounded-lg bg-white">
+              <h2 className="text-black text-xl font-bold mb-1">Listing Preview</h2>
+              <p className="text-gray-500 text-sm mb-6">Review your car listing before submitting</p>
+                <div className="flex justify-center items-center bg-gray-50 rounded-lg h-[280px] mb-8">
+                {images.length > 0 ? (
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={images[0]}
+                      alt="Car preview"
+                      fill
+                      className="object-contain rounded-lg"
+                    />
                   </div>
                 ) : (
-                  <div className="mb-6 h-64 bg-slate-100 rounded-lg flex items-center justify-center">
-                    <Image 
-                      src="/CarIcon.png" 
-                      alt="Car icon" 
-                      width={64} 
-                      height={64}
-                      className="opacity-40"
+                  <div className="flex items-center justify-center">
+                    <Image
+                      src="/CarIcon.png"
+                      alt="Car icon"
+                      width={48}
+                      height={32}
+                      className="opacity-50"
                     />
                   </div>
                 )}
+              </div>              <div className="grid grid-cols-4 gap-4 mb-8">
+                <div className="bg-gray-50 p-3 rounded">
+                  <p className="text-gray-500 text-sm mb-1">Price</p>
+                  <span className="font-medium text-black text-base">${watch("pricePerDay")}/day</span>
+                </div>
+                <div className="bg-gray-50 p-3 rounded">
+                  <p className="text-gray-500 text-sm mb-1">Category</p>
+                  <span className="font-medium text-black text-base">{watch("category") || "Not specified"}</span>
+                </div>
+                <div className="bg-gray-50 p-3 rounded">
+                  <p className="text-gray-500 text-sm mb-1">Transmission</p>
+                  <span className="font-medium text-black text-base capitalize">{watch("transmission")}</span>
+                </div>
+                <div className="bg-gray-50 p-3 rounded">
+                  <p className="text-gray-500 text-sm mb-1">Seats</p>
+                  <span className="font-medium text-black text-base">{watch("seats")}</span>
+                </div>
+              </div>              <div className="space-y-6">
+                <div>
+                  <p className="text-gray-500 text-sm mb-1">Description</p>
+                  <p className="text-gray-600 text-sm">{watch("description") || "No description provided."}</p>
+                </div>
 
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-2xl font-bold text-black">
-                      {getValues("brand")} {getValues("model")}
-                    </h3>
-                  </div>
+                <div>
+                  <p className="text-gray-500 text-sm mb-1">Features</p>
+                  {watch("features").length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {watch("features").map(feature => (
+                        <span
+                          key={feature}
+                          className="px-2 py-1 bg-gray-50 text-gray-600 text-xs rounded"
+                        >
+                          {CAR_FEATURES.find(f => f.id === feature)?.label || feature}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600 text-sm">No features selected.</p>
+                  )}
+                </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="border rounded-lg shadow-sm">
-                      <div className="p-4">
-                        <div className="text-sm text-gray-500">Price</div>
-                        <div className="text-lg font-semibold text-black">${getValues("pricePerDay") || "0"}/day</div>
-                      </div>
-                    </div>
-                    <div className="border rounded-lg shadow-sm">
-                      <div className="p-4">
-                        <div className="text-sm text-gray-500">Category</div>
-                        <div className="text-lg font-semibold text-black">{getValues("category") || "Not specified"}</div>
-                      </div>
-                    </div>
-                    <div className="border rounded-lg shadow-sm">
-                      <div className="p-4">
-                        <div className="text-sm text-gray-500">Transmission</div>
-                        <div className="text-lg font-semibold text-black">{getValues("transmission") === "automatic" ? "Automatic" : getValues("transmission") === "manual" ? "Manual" : "Not specified"}</div>
-                      </div>
-                    </div>
-                    <div className="border rounded-lg shadow-sm">
-                      <div className="p-4">
-                        <div className="text-sm text-gray-500">Seats</div>
-                        <div className="text-lg font-semibold text-black">{getValues("seats") || "0"}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium mb-2 text-black">Description</h4>
-                    <p className="text-gray-500">
-                      {getValues("description") || "No description provided."}
-                    </p>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium mb-2 text-black">Features</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {features.length > 0 ? (
-                        features.map((featureId) => {
-                          const feature = CAR_FEATURES.find((f) => f.id === featureId);
-                          return feature ? (
-                            <span key={featureId} className="inline-flex items-center rounded-full border border-gray-200 bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
-                              {feature.label}
-                            </span>
-                          ) : null;
-                        })
-                      ) : (
-                        <span className="text-gray-500">No features selected.</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium mb-2 text-black">Availability</h4>
-                    <p className="text-gray-500">
-                      {getValues("availabilitySchedule") === "always" && "Always available"}
-                      {getValues("availabilitySchedule") === "weekdays" && "Available on weekdays only"}
-                      {getValues("availabilitySchedule") === "weekends" && "Available on weekends only"}
-                      {getValues("availabilitySchedule") === "custom" && "Custom availability schedule"}
-                    </p>
-                    <p className="text-gray-500 mt-1">
-                      Rental period: {getValues("minRentalPeriod") || "1"} to {getValues("maxRentalPeriod") || "30"}{" "}
-                      days
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-gray-500 text-sm mb-1">Availability</p>
+                  <p className="text-gray-600 text-sm">{watch("availabilitySchedule") === "always" ? "Always available" : watch("availabilitySchedule")}</p>
+                  <p className="text-gray-600 text-sm">Rental period: {watch("minRentalPeriod")} to {watch("maxRentalPeriod")} days</p>
                 </div>
               </div>
-            </div>
 
-            <div className="flex items-start space-x-3 pt-4">
-              <div className="flex h-5 items-center">
-                <input
-                  id="terms"
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300 text-[#EA580C] focus:ring-[#EA580C]"
-                  onChange={() => {
-                    // In a real implementation, you would store this value
-                    // Terms checkbox state - currently visual only
-                  }}
-                />
+              {/* Terms and Conditions Acceptance */}
+              <div className="py-6 border-t">
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="terms"
+                    {...register("termsAccepted")}
+                    className="mt-1"
+                  />
+                  <label htmlFor="terms" className="text-sm text-gray-600">
+                    By registering your car, you agree to our terms of service and privacy policy
+                  </label>
+                </div>
+                {errors.termsAccepted && 
+                  <p className="text-red-600 text-xs mt-1">{errors.termsAccepted.message}</p>
+                }
               </div>
-              <div className="space-y-1 leading-none">
-                <label htmlFor="terms" className="text-sm font-medium text-black">
-                  I agree to the terms and conditions
-                </label>
-                <p className="text-xs text-gray-500">
-                  By registering your car, you agree to our{" "}
-                  <a href="/terms" className="text-[#EA580C] underline hover:text-[#C04000]">
-                    terms of service
-                  </a>{" "}
-                  and{" "}
-                  <a href="/privacy" className="text-[#EA580C] underline hover:text-[#C04000]">
-                    privacy policy
-                  </a>.
-                </p>
-              </div>
-            </div>
 
-            <div className="flex justify-between mt-6">
-              <button
-                type="button"
-                onClick={prevTab}
-                className="px-4 py-2 rounded border border-black text-black font-bold text-center hover:bg-black hover:text-white cursor-pointer"
-              >
-                Back to Photos
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="bg-[#EA580C] hover:cursor-pointer text-white px-4 py-2 rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Registering car...
-                  </span>
-                ) : (
-                  'Register Car'
-                )}
-              </button>
+              {/* Navigation Buttons */}
+              <div className="flex justify-between mt-6">
+                <button
+                  type="button"
+                  onClick={prevTab}
+                  className="px-4 py-2 rounded border border-black text-black font-bold hover:bg-black hover:text-white cursor-pointer"
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`
+                    px-8 py-2 rounded text-white font-bold flex items-center gap-2 transition-colors
+                    ${loading ? "bg-[#EA580C]/70" : "bg-[#EA580C] hover:bg-[#EA580C]/90"}
+                  `}
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Registering...</span>
+                    </>
+                  ) : (
+                    "Register Car"
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}

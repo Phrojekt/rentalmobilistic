@@ -9,23 +9,24 @@ import type { Car } from "@/services/carService";
 import Link from "next/link";
 import Image from "next/image";
 import UpdateAvailabilityModal from "@/components/UpdateAvailabilityModal";
+import NotificationList from "@/components/NotificationList";
+import NotificationButton from "@/components/NotificationButton";
 
 // Tipos para as tabs
 type TabType = 'my-cars' | 'rented-cars';
 
-function AdminCarsPageContent() {
-  const { user, loading: authLoading } = useAuth();
+function AdminCarsPageContent() {  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tab = searchParams.get("tab");
+  const tab = searchParams?.get("tab") as TabType | null;
 
   const [cars, setCars] = useState<Car[]>([]);
-  const [rentedCars, setRentedCars] = useState<Car[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabType>(tab as TabType || 'my-cars');
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [carFilter, setCarFilter] = useState<'all' | 'active' | 'pending'>('all');
+  const [rentedCars, setRentedCars] = useState<Car[]>([]);  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabType>(tab && (tab === 'my-cars' || tab === 'rented-cars') ? tab : 'my-cars');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);const [carFilter, setCarFilter] = useState<'all' | 'active'>('all');
   const [selectedCarForAvailability, setSelectedCarForAvailability] = useState<Car | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+
   // Função para carregar os carros
   const loadUserCars = useCallback(async () => {
     if (!user) return;
@@ -138,7 +139,10 @@ function AdminCarsPageContent() {
       const end = new Date(car.rentalInfo.endDate);
       const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
       bookingRate = Math.min(100, Math.round((days / 30) * 100));
-    }    return (      <div
+    }
+    
+    return (
+      <div
         key={activeTab === 'my-cars' ? car.id : `${car.id}-${car.rentalId || ''}`}
         className="border rounded-lg p-0 bg-white shadow-sm flex flex-col w-full max-w-[320px] ml-0"
       >
@@ -301,8 +305,8 @@ function AdminCarsPageContent() {
       );
     }
 
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">        {items.map(car => renderCarCard(car))}
+    return (      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {items.map(car => renderCarCard(car))}
       </div>
     );
   };
@@ -324,82 +328,96 @@ function AdminCarsPageContent() {
           onUpdate={handleUpdateAvailability}
         />
       )}
-      <div className="flex flex-col gap-6">
-        <div className="flex justify-between items-center">
-          <div className="flex gap-4">
-            <button
-              onClick={() => setActiveTab('my-cars')}
-              className={`px-4 py-2 rounded-lg font-bold ${
-                activeTab === 'my-cars'
-                  ? 'bg-[#EA580C] text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+
+      <div className="mb-6 flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setActiveTab('my-cars')}
+            className={`px-4 py-2 rounded-lg font-bold ${
+              activeTab === 'my-cars'
+                ? 'bg-[#EA580C] text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            My Cars
+          </button>
+          <button
+            onClick={() => setActiveTab('rented-cars')}
+            className={`px-4 py-2 rounded-lg font-bold ${
+              activeTab === 'rented-cars'
+                ? 'bg-[#EA580C] text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            Rental Cars
+          </button>
+          <NotificationButton
+            onClick={() => setShowNotifications(!showNotifications)}
+            isActive={showNotifications}
+          />
+        </div>
+        <div className="flex gap-4 items-center">
+          <Link
+            href="/admin/cars/new"
+            className="px-4 py-2 rounded-lg font-bold bg-[#EA580C] text-white hover:bg-[#D45207]"
+          >
+            Register New Car
+          </Link>
+        </div>
+      </div>
+
+      {/* Notifications Panel */}
+      {showNotifications && (
+        <div className="mb-6 p-4 border rounded-lg bg-white">
+          <h2 className="text-xl font-bold text-black mb-4">Notifications</h2>
+          <NotificationList />
+        </div>
+      )}
+
+      {/* Content section */}
+      {activeTab === 'my-cars' && (
+        <div className="flex justify-between items-center mt-2 mb-4">
+          <div>
+            <h1 className="text-2xl font-bold text-black">My Cars</h1>
+            <p className="text-[#676773] text-base">Manage ur registered cars</p>
+          </div>
+          <div>
+            <select
+              className="border rounded px-4 py-2 text-black bg-white"
+              value={carFilter}
+              onChange={e => setCarFilter(e.target.value as 'all' | 'active')}
             >
-              My Cars
-            </button>
-            <button
-              onClick={() => setActiveTab('rented-cars')}
-              className={`px-4 py-2 rounded-lg font-bold ${
-                activeTab === 'rented-cars'
-                  ? 'bg-[#EA580C] text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              Rental Cars
-            </button>
+              <option value="all">All cars</option>
+              <option value="active">Actived Cars</option>
+            </select>
           </div>
         </div>
+      )}
 
-        {/* Bloco de título, subtítulo e dropdown apenas para My Cars */}
-        {activeTab === 'my-cars' && (
-          <div className="flex justify-between items-center mt-2 mb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-black">My Cars</h1>
-              <p className="text-[#676773] text-base">Manage your registered cars</p>
-            </div>
-            <div>
-              <select
-                className="border rounded px-4 py-2 text-black bg-white"
-                value={carFilter}
-                onChange={e => setCarFilter(e.target.value as 'all' | 'active' | 'pending')}
+      {/* Cards rendering */}
+      {activeTab === 'my-cars' ? (
+        <>
+          {filteredCars.length === 0 ? (
+            <div className="text-center py-10">
+              <p className="text-[#676773] mb-4">
+                Você ainda não registrou nenhum carro.
+              </p>
+              <Link
+                href="/admin/cars/new"
+                className="text-[#EA580C] hover:underline"
               >
-                <option value="all">All Cars</option>
-                <option value="active">Active Cars</option>
-                <option value="pending">Pending Approval</option>
-              </select>
+                Clique aqui para registrar seu primeiro carro
+              </Link>
             </div>
-          </div>
-        )}
-
-        {/* Cards rendering with applied filter */}
-        {activeTab === 'my-cars'
-          ? (
-            <>
-              {filteredCars.length === 0
-                ? (
-                  <div className="text-center py-10">
-                    <p className="text-[#676773] mb-4">
-                      You have not registered any cars yet.
-                    </p>
-                    <Link
-                      href="/admin/cars/new"
-                      className="text-[#EA580C] hover:underline"
-                    >
-                      Click here to register your first car
-                    </Link>
-                  </div>
-                )
-                : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredCars.map(car => renderCarCard(car))}
-                  </div>
-                )
-              }
-            </>
-          )
-          : renderTabContent()
-        }
-      </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredCars.map(car => renderCarCard(car))}
+            </div>
+          )}
+        </>
+      ) : (
+        renderTabContent()
+      )}
     </div>
   );
 }

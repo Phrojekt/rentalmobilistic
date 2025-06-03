@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
@@ -7,12 +9,10 @@ import { cartService } from "@/services/cartService";
 import { useAuth } from "@/hooks/useAuth";
 import type { Car } from "@/services/carService";
 import BookingModal from "./BookingModal";
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { toast } from 'react-hot-toast'; // Add this import
+import { toast } from 'react-hot-toast';
 
 export default function CarDetails() {
-  const params = useParams();
+  const params = useParams() as { id?: string | string[] };
   const [car, setCar] = useState<Car | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
@@ -28,79 +28,144 @@ export default function CarDetails() {
 
   const loadCar = React.useCallback(async () => {
     try {
-      if (typeof params.id === 'string') {
-        const carData = await carService.getCarById(params.id);
-        
-        if (carData) {
-          const ownerDoc = await getDoc(doc(db, 'users', carData.ownerId));
-          if (ownerDoc.exists()) {
-            const ownerInfo = ownerDoc.data();
-            setOwnerData({
-              name: ownerInfo.fullName || 'Car Owner',
-              email: ownerInfo.email,
-              profilePicture: ownerInfo.profilePicture
-            });
-          }
+      // Check if params.id is defined and handle its type
+      const carId = params?.id;
+      if (!carId) {
+        toast.error('Car ID not found');
+        setLoading(false);
+        return;
+      }
 
-          if (user && carData.availability === 'rented') {
-            const userRentals = await cartService.getConfirmedRentals(user.uid);
-            const currentRental = userRentals.find((rental) => 
-              rental.carId === carData.id && 
-              rental.status === 'confirmed'
-            );
-            
-            if (currentRental) {
-              const updatedCar = {
-                ...carData,
-                rentalInfo: {
-                  startDate: currentRental.startDate,
-                  endDate: currentRental.endDate,
-                  totalPrice: currentRental.totalPrice,
-                  status: currentRental.status as 'active' | 'cancelled' | 'completed'
-                }
-              };
-              setCar(updatedCar);
-              return;
+      // Handle both string and string[] cases
+      const id = Array.isArray(carId) ? carId[0] : carId;
+      const carData = await carService.getCarById(id);
+      
+      if (!carData) {
+        toast.error('Car not found');
+        setLoading(false);
+        return;
+      }
+
+      // Set owner data
+      setOwnerData({
+        name: carData.ownerName || 'Car Owner',
+        email: '',
+        profilePicture: carData.ownerProfilePicture
+      });
+
+      // If user is logged in, check their rentals
+      if (user) {
+        // First check pending rentals
+        const pendingRentals = await cartService.getPendingRentals(carData.id);
+        const userPendingRental = pendingRentals.find(rental => rental.userId === user.uid);
+        
+        if (userPendingRental) {
+          setCar({
+            ...carData,
+            rentalInfo: {
+              startDate: userPendingRental.startDate,
+              endDate: userPendingRental.endDate,
+              totalPrice: userPendingRental.totalPrice,
+              status: 'pending',
+              userId: userPendingRental.userId
             }
-          }
-          
-          // Check for rental cancellation
-          if (carData.availability === 'available' && car?.availability === 'rented') {
-            toast.error('This rental has been cancelled by the owner');
-            // Clear rental info when cancelled
-            setCar({
-              ...carData,
-              rentalInfo: undefined
-            });
-            return;
-          }
-          
-          setCar(carData);
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Then check confirmed rentals
+        const userRentals = await cartService.getConfirmedRentals(user.uid);
+        const currentRental = userRentals.find(
+          (rental) => rental.carId === carData.id && rental.status === 'confirmed'
+        );
+        
+        if (currentRental) {
+          setCar({
+            ...carData,
+            rentalInfo: {
+              startDate: currentRental.startDate,
+              endDate: currentRental.endDate,
+              totalPrice: currentRental.totalPrice,
+              status: 'active',
+              userId: currentRental.userId
+            }
+          });
+          setLoading(false);
+          return;
         }
       }
+
+      // If car status changed from rented to available, show cancellation message
+      if (carData.availability === 'available' && car?.availability === 'rented') {
+        toast.error('This rental has been cancelled by the owner');
+      }
+      
+      setCar(carData);
     } catch (error) {
       console.error("Error loading car:", error);
       toast.error("Failed to load car details");
     } finally {
       setLoading(false);
     }
-  }, [params.id, user, car?.availability]);
+  }, [params?.id, user, car?.availability]);
 
+  // Initial load and polling setup
   useEffect(() => {
     loadCar();
-  }, [loadCar]);
 
-  // Add polling to check for rental status changes
-  useEffect(() => {
-    if (!car?.id) return;
+    // Set up polling if we have a car ID
+    let checkRentalStatus: NodeJS.Timeout | null = null;
+    if (params?.id) {
+      checkRentalStatus = setInterval(loadCar, 30000); // Check every 30 seconds
+    }
 
-    const checkRentalStatus = setInterval(loadCar, 30000); // Check every 30 seconds
-    return () => clearInterval(checkRentalStatus);
-  }, [car?.id, loadCar]);
+    // Cleanup function
+    return () => {
+      if (checkRentalStatus) {
+        clearInterval(checkRentalStatus);
+      }
+    };
+  }, [loadCar, params?.id]);
 
   const handleBookingComplete = async () => {
     // Recarregar os dados do carro após a reserva
     await loadCar();
+  };
+
+  const handleCancelBooking = async () => {
+    if (!car || !user || !car.rentalInfo) return;
+
+    const confirmed = window.confirm('Are you sure you want to cancel this rental? This action cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      // Get the cart item ID
+      const userRentals = await cartService.getConfirmedRentals(user.uid);
+      const currentRental = userRentals.find(
+        (rental) => rental.carId === car.id && rental.status === 'confirmed'
+      );
+
+      if (!currentRental) {
+        toast.error('Rental not found');
+        return;
+      }
+
+      // First update the rental status to cancelled
+      await cartService.updateCartItem(currentRental.id, {
+        status: 'cancelled',
+        cancellationReason: 'Cancelled by ' + (user.uid === car.ownerId ? 'owner' : 'renter')
+      });
+
+      // Then update car availability
+      await carService.updateCarAvailability(car.id, 'available');
+
+      toast.success('Rental cancelled successfully');
+      await loadCar(); // Reload car data
+    } catch (error) {
+      console.error('Error cancelling rental:', error);
+      toast.error('Failed to cancel rental');
+    }
   };
 
   if (loading) {
@@ -121,6 +186,70 @@ export default function CarDetails() {
 
   // Add function to check if current user is owner
   const isOwner = user?.uid === car?.ownerId;
+
+  // Interface button based on rental status
+  const getBookingButton = () => {
+    if (isOwner) {
+      return <div className="text-center text-sm text-[#676773]">You cannot rent your own car</div>;
+    }
+
+    if (!user) {
+      return <div className="text-center text-sm text-[#676773]">Please log in to rent this car</div>;
+    }
+
+    if (car?.rentalInfo?.status === 'pending' && user?.uid === car.rentalInfo.userId) {
+      return (
+        <div className="flex flex-col gap-2">
+          <div className="text-center text-sm text-[#F59E42] font-medium">
+            Your rental request is pending approval
+          </div>
+          <button
+            onClick={handleCancelBooking}
+            className="w-full font-bold py-2 rounded bg-red-600 hover:bg-red-700 text-white transition-colors"
+          >
+            Cancel Request
+          </button>
+        </div>
+      );
+    }
+
+    if (car?.availability === 'available' && !car?.rentalInfo?.status) {
+      return (
+        <button
+          className="w-full font-bold py-2 rounded bg-orange-600 hover:bg-orange-700 text-white transition-colors"
+          onClick={() => setIsBookingModalOpen(true)}
+        >
+          {car.instantBooking ? 'Book Now' : 'Request Rental'}
+        </button>
+      );
+    }
+
+    if (car?.availability === 'maintenance') {
+      return <div className="text-center text-sm text-[#F59E42]">Under Maintenance</div>;
+    }
+
+    if (car?.availability === 'rented') {
+      if (car.rentalInfo?.userId === user?.uid) {
+        if (car.rentalInfo.status === 'active') {
+          return (
+            <>
+              <div className="text-center text-sm text-[#16A34A] mb-4">You are currently renting this car</div>
+              <button
+                onClick={handleCancelBooking}
+                className="w-full font-bold py-2 rounded bg-red-600 hover:bg-red-700 text-white transition-colors"
+              >
+                Cancel Rental
+              </button>
+            </>
+          );
+        }
+        return <div className="text-center text-sm text-[#F59E42]">Your rental request is being processed</div>;
+      }
+      return <div className="text-center text-sm text-[#676773]">Currently rented</div>;
+    }
+
+    return <div className="text-center text-sm text-[#676773]">Not Available</div>;
+  };
 
   return (
     <div className="flex flex-col items-center w-full bg-white">
@@ -295,30 +424,65 @@ export default function CarDetails() {
                       {new Date(car.rentalInfo.startDate).toLocaleDateString()} - {new Date(car.rentalInfo.endDate).toLocaleDateString()}
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1 text-sm mb-2">
-                    <div className="flex justify-between font-bold border-t pt-1">
-                      <span className="text-[#1A1A1A]">Total Paid</span>
-                      <span className="text-[#EA580C]">${car.rentalInfo.totalPrice}</span>
+                  <div className="flex flex-col gap-1 text-sm mb-4">
+                    <div className="flex justify-between border-t pt-1">
+                      <span className="text-[#676773]">Total Paid</span>
+                      <span className="text-[#1A1A1A] font-semibold">${car.rentalInfo.totalPrice}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#676773]">Status</span>
+                      <span className={`font-semibold ${
+                        car.rentalInfo.status === 'active' ? "text-[#16A34A]" :
+                        car.rentalInfo.status === 'pending' ? "text-[#F59E42]" :
+                        car.rentalInfo.status === 'cancelled' ? "text-red-500" :
+                        "text-[#16A34A]"
+                      }`}>
+                        {car.rentalInfo.status === 'pending' ? 'Pending Approval' : 'Active'}
+                      </span>
                     </div>
                   </div>
-                  <div className="text-center text-sm text-[#676773]">
-                    This car is currently rented
-                  </div>
+                  {user && user.uid === car.rentalInfo.userId && car.rentalInfo.status !== 'pending' ? (
+                    <>
+                      <div className="text-center text-sm text-[#676773] mb-4">
+                        You are currently renting this car
+                      </div>
+                      <button
+                        onClick={handleCancelBooking}
+                        className="w-full font-bold py-2 rounded bg-red-600 hover:bg-red-700 text-white transition-colors"
+                      >
+                        Cancel Rental
+                      </button>
+                    </>
+                  ) : user && user.uid === car.rentalInfo.userId ? (
+                    <div className="text-center text-sm text-[#676773]">
+                      Your rental request is pending approval
+                    </div>
+                  ) : (
+                    <div className="text-center text-sm text-[#676773]">
+                      This car is currently {car.rentalInfo.status === 'pending' ? 'pending rental approval' : 'rented'}
+                    </div>
+                  )}
                 </>
+              ) : car.availability === "available" && car.rentalInfo?.status === 'pending' ? (
+                <div className="text-center text-sm text-[#F59E42] font-medium">
+                  Your rental request is pending approval
+                </div>
               ) : (
                 <>
                   <div className="mb-2">
                     <label className="block text-xs text-[#676773] mb-1">Select Period</label>
                     <button
                       onClick={() => setIsBookingModalOpen(true)}
-                      disabled={car.availability !== "available" || isOwner}
+                      disabled={car.availability !== "available" || isOwner || car.rentalInfo?.status === 'pending'}
                       className={`w-full border rounded px-2 py-1 text-sm text-left ${
-                        isOwner 
+                        isOwner || car.availability !== "available" || car.rentalInfo?.status === 'pending'
                           ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                           : "text-[#1A1A1A] bg-white hover:bg-gray-50 cursor-pointer"
                       }`}
                     >
-                      {isOwner ? "You own this car" : "Click to select dates"}
+                      {isOwner ? "You own this car" : 
+                       car.rentalInfo?.status === 'pending' ? "Rental request pending" :
+                       "Click to select dates"}
                     </button>
                   </div>
                   <div className="flex flex-col gap-1 text-sm mb-2">
@@ -331,21 +495,7 @@ export default function CarDetails() {
                       <span className="text-[#1A1A1A] font-semibold">10%</span>
                     </div>
                   </div>
-                  <button
-                    className={`w-full font-bold py-2 rounded transition-colors ${
-                      car.availability === "available"
-                        ? "bg-orange-600 hover:bg-orange-700 text-white"
-                        : "bg-gray-200 text-gray-500 cursor-not-allowed"
-                    }`}
-                    disabled={car.availability !== "available"}
-                    onClick={() => setIsBookingModalOpen(true)}
-                  >
-                    {car.availability === "available" 
-                      ? "Request Rental" 
-                      : car.availability === "maintenance"
-                      ? "Under Maintenance"
-                      : "Not Available"}
-                  </button>
+                  {getBookingButton()}
                 </>
               )}
             </div>            {/* Owner Info */}

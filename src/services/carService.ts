@@ -12,18 +12,44 @@ import {
   limit,
   startAfter,
   Timestamp,
-  QueryConstraint,
   DocumentData,
   QueryDocumentSnapshot,
-  FirestoreError
-} from 'firebase/firestore';
-import { FirebaseError } from 'firebase/app';
-import { db } from '../lib/firebase';
-import { imageService } from './imageService';
+  FirestoreError,
+  writeBatch,
+  QueryConstraint
+} from "firebase/firestore";
+import { FirebaseError } from "firebase/app";
+import { auth, db } from "../lib/firebase";
+import { imageService } from "./imageService";
+import { CartItem } from "./cartService";
 
-export interface Car {
-  id: string;
-  rentalId?: string; // ID único do aluguel
+export type Availability = "available" | "rented" | "maintenance";
+
+// Interface for filtering cars
+export interface GetCarsFilters {
+  limit?: number;
+  startAfter?: QueryDocumentSnapshot<DocumentData>;
+  brand?: string;
+  model?: string;
+  category?: string;
+  transmission?: "manual" | "automatic";
+  fuel?: "gasoline" | "diesel" | "electric" | "hybrid";
+  minPrice?: number;
+  maxPrice?: number;
+  minYear?: number;
+  maxYear?: number;
+  seats?: number;
+  city?: string;
+  state?: string;
+  pickupDate?: string;
+  returnDate?: string;
+  location?: string;
+  availability?: "available" | "rented" | "maintenance";
+  lastDoc?: QueryDocumentSnapshot<DocumentData>;
+}
+
+// Base interface for common car fields
+export interface CarBase {
   name: string;
   brand: string;
   model: string;
@@ -32,8 +58,8 @@ export interface Car {
   price: number;
   pricePerDay: number;
   mileage: number;
-  transmission: 'manual' | 'automatic';
-  fuel: 'gasoline' | 'diesel' | 'electric' | 'hybrid';
+  transmission: "manual" | "automatic";
+  fuel: "gasoline" | "diesel" | "electric" | "hybrid";
   seats: number;
   description: string;
   features: string[];
@@ -43,16 +69,29 @@ export interface Car {
     state: string;
     country: string;
   };
-  availability: 'available' | 'rented' | 'maintenance';
-  availabilitySchedule: 'always' | 'weekdays' | 'weekends' | 'custom';
+  availability: Availability;
+  availabilitySchedule: "always" | "weekdays" | "weekends" | "custom";
   instantBooking: boolean;
   minRentalPeriod: number;
   maxRentalPeriod: number;
   securityDeposit: number;
-  deliveryOptions: 'pickup' | 'delivery' | 'both';
+  deliveryOptions: "pickup" | "delivery" | "both";
   ownerId: string;
+}
+
+// Interface for Car data when creating/updating
+export interface CarData extends CarBase {
+  id?: string;
+  rentalId?: string;
+}
+
+// Interface for Car with all fields
+export interface Car extends CarBase {
+  id: string;
+  rentalId?: string;
   createdAt: Date;
   updatedAt: Date;
+  searchTerms?: string[];
   currentRental?: {
     startDate: Date;
     endDate: Date;
@@ -61,54 +100,262 @@ export interface Car {
     startDate: Date;
     endDate: Date;
     totalPrice: number;
-    status?: 'active' | 'cancelled' | 'completed';
+    status?: "active" | "cancelled" | "completed" | "pending";
+    userId?: string;
   };
   ownerProfilePicture?: string;
   ownerName?: string;
 }
 
+// Interface for Car data as stored in Firestore
+export interface FirestoreCar extends CarBase {
+  id: string;
+  rentalId?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  searchTerms: string[];
+  currentRental?: {
+    startDate: Timestamp;
+    endDate: Timestamp;
+  };
+  rentalInfo?: {
+    startDate: Timestamp;
+    endDate: Timestamp;
+    totalPrice: number;
+    status?: "active" | "cancelled" | "completed";
+  };
+}
+
+// Helper function to generate search terms for a car
+const generateSearchTerms = (car: Partial<CarBase>): string[] => {
+  const terms = new Set<string>();
+    // Function to add all word combinations
+  const addTerms = (text: string) => {
+    if (!text) return;
+    
+    const cleanText = text.toLowerCase().trim();
+    const words = cleanText.split(/\s+/);
+    
+    // Add individual words and their variations
+    words.forEach(word => {
+      if (word.length > 2) {
+        terms.add(word); // Add full word
+        // Add word prefixes for partial matching (min 3 chars)
+        for (let i = 3; i <= word.length; i++) {
+          terms.add(word.substring(0, i));
+        }
+      }
+    });
+
+    // Add word pairs
+    for (let i = 0; i < words.length - 1; i++) {
+      const pair = `${words[i]} ${words[i + 1]}`;
+      terms.add(pair);
+    }
+
+    // Add the full normalized text
+    terms.add(cleanText);
+    
+    // For debugging
+    console.log('Generated terms for:', text, Array.from(terms));
+  };
+  
+  // Add brand and model terms
+  if (car.brand) addTerms(car.brand);
+  if (car.model) addTerms(car.model);
+  if (car.brand && car.model) addTerms(`${car.brand} ${car.model}`);
+  
+  // Add location terms
+  if (car.location) {
+    if (car.location.city) addTerms(car.location.city);
+    if (car.location.state) addTerms(car.location.state);
+    if (car.location.city && car.location.state) {
+      addTerms(`${car.location.city} ${car.location.state}`);
+    }
+  }
+  
+  // Add category
+  if (car.category) addTerms(car.category);
+  
+  return Array.from(terms);
+};
+
 // Helper function to convert Firestore document to Car type
-const convertFirestoreDataToCar = (doc: QueryDocumentSnapshot<DocumentData>): Car => {
-  const data = doc.data();
-  return {
-    ...data,
+const convertFirestoreDataToCar = (
+  doc: QueryDocumentSnapshot<DocumentData>
+): Car => {
+  const data = doc.data() as FirestoreCar;
+
+  // Primeiro, pegamos apenas os campos base do carro (sem as datas)
+  const { createdAt, updatedAt, currentRental, rentalInfo, ...baseData } = data;
+
+  // Criamos o objeto car com os campos base
+  const car: Car = {
+    ...baseData,
     id: doc.id,
-    createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate() : new Date(),
-    updatedAt: data.updatedAt ? (data.updatedAt as Timestamp).toDate() : new Date()
-  } as Car;
+    createdAt: createdAt.toDate(),
+    updatedAt: updatedAt.toDate(),
+  };
+
+  // Adicionamos currentRental se existir
+  if (currentRental) {
+    car.currentRental = {
+      startDate: currentRental.startDate.toDate(),
+      endDate: currentRental.endDate.toDate(),
+    };
+  }
+
+  // Adicionamos rentalInfo se existir
+  if (rentalInfo) {
+    car.rentalInfo = {
+      ...rentalInfo,
+      startDate: rentalInfo.startDate.toDate(),
+      endDate: rentalInfo.endDate.toDate(),
+    };
+  }
+
+  return car;
 };
 
 export const carService = {
   // Add a new car
-  async addCar(carData: Omit<Car, 'id' | 'createdAt' | 'updatedAt'>): Promise<Car> {
+  async addCar(carData: Omit<CarData, "id">): Promise<Car> {
     try {
-      const carsRef = collection(db, 'cars');
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error("User must be logged in to create a car");
+      }
+
+      // Create car reference
+      const carsRef = collection(db, "cars");
       const newCarRef = doc(carsRef);
       const carId = newCarRef.id;
 
-      // Upload images to Imgur and get their URLs
+      // Process images
       const imageUrls = await imageService.uploadImages(carData.images || []);
-
-      // Garantir que features seja sempre um array
-      const features = Array.isArray(carData.features) ? carData.features : [];
-
-      const car: Car = {
-        ...carData,
-        images: imageUrls, // Use the Imgur URLs
-        features,
+      if (imageUrls.length === 0) {
+        throw new Error("At least one image is required");
+      }      const now = Timestamp.now();      // Create the car data with all required fields and defaults
+      const firestoreCar: FirestoreCar = {
+        name: carData.name,
+        brand: carData.brand,
+        model: carData.model,
+        category: carData.category,
+        year: carData.year,
+        price: carData.price || 0,
+        pricePerDay: carData.pricePerDay,
+        mileage: carData.mileage || 0,
+        transmission: carData.transmission,
+        fuel: carData.fuel,
+        seats: carData.seats,
+        description: carData.description,
+        location: carData.location,
+        images: imageUrls,
+        features: Array.isArray(carData.features) ? carData.features : [],
         id: carId,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        ownerId: user.uid,
+        availability: "available",
+        instantBooking: carData.instantBooking ?? false,
+        availabilitySchedule: carData.availabilitySchedule || "always",
+        minRentalPeriod: carData.minRentalPeriod || 1,
+        maxRentalPeriod: carData.maxRentalPeriod || 30,
+        securityDeposit: carData.securityDeposit || 0,
+        deliveryOptions: carData.deliveryOptions || "pickup",
+        createdAt: now,
+        updatedAt: now,
+        searchTerms: generateSearchTerms({
+          brand: carData.brand,
+          model: carData.model,
+          category: carData.category,
+          location: carData.location,
+        }),
       };
 
-      await setDoc(newCarRef, car);
-      return car;
-    } catch (error: unknown) {
-      if (error instanceof FirebaseError || error instanceof FirestoreError) {
-        console.error('Error in addCar:', (error as Error).message);
-      } else {
-        console.error('Error in addCar:', error);
+      // Save to Firestore
+      try {
+        await setDoc(newCarRef, firestoreCar);
+      } catch (error) {
+        console.error("Error saving to Firestore:", error);
+        throw new Error("Failed to save car to database. Please try again.");
       }
+
+      // Convert Firestore data to Car type for return
+      const { createdAt, updatedAt, currentRental, rentalInfo, ...baseData } = firestoreCar;
+
+      // Create the car object with date fields properly converted
+      const car: Car = {
+        ...baseData,
+        createdAt: createdAt.toDate(),
+        updatedAt: updatedAt.toDate(),
+      };
+
+      // Add currentRental if it exists, with dates converted
+      if (currentRental) {
+        car.currentRental = {
+          startDate: currentRental.startDate.toDate(),
+          endDate: currentRental.endDate.toDate(),
+        };
+      }
+
+      // Add rentalInfo if it exists, with dates converted
+      if (rentalInfo) {
+        car.rentalInfo = {
+          ...rentalInfo,
+          startDate: rentalInfo.startDate.toDate(),
+          endDate: rentalInfo.endDate.toDate(),
+        };
+      }
+
+      return car;
+    } catch (error) {
+      console.error("Error in addCar:", error);
+      throw error;
+    }
+  },
+
+  // Get cars by owner
+  async getCarsByOwner(ownerId: string): Promise<Car[]> {
+    try {
+      const carsQuery = query(
+        collection(db, "cars"),
+        where("ownerId", "==", ownerId)
+      );
+
+      const snapshot = await getDocs(carsQuery);
+      return snapshot.docs.map((doc) => convertFirestoreDataToCar(doc));
+    } catch (error) {
+      console.error("Error getting cars by owner:", error);
+      throw error;
+    }
+  },
+
+  // Delete car
+  async deleteCar(carId: string): Promise<void> {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error("User must be logged in to delete a car");
+      }
+
+      const carRef = doc(db, "cars", carId);
+      const carDoc = await getDoc(carRef);
+
+      if (!carDoc.exists()) {
+        throw new Error("Car not found");
+      }
+
+      const carData = carDoc.data() as FirestoreCar;
+      if (carData.ownerId !== user.uid) {
+        throw new Error("Only the car owner can delete this car");
+      }
+
+      if (carData.availability === "rented") {
+        throw new Error("Cannot delete a car that is currently rented");
+      }
+
+      await deleteDoc(carRef);
+    } catch (error) {
+      console.error("Error deleting car:", error);
       throw error;
     }
   },
@@ -116,16 +363,31 @@ export const carService = {
   // Get car by ID
   async getCarById(carId: string): Promise<Car | null> {
     try {
-      const carDoc = await getDoc(doc(db, 'cars', carId));
+      const carDoc = await getDoc(doc(db, "cars", carId));
       if (!carDoc.exists()) {
         return null;
       }
-      return carDoc.data() as Car;
+      const car = convertFirestoreDataToCar(carDoc);
+
+      // Get owner's basic public information
+      try {
+        const ownerRef = doc(db, "users", car.ownerId);
+        const ownerDoc = await getDoc(ownerRef);
+        if (ownerDoc.exists()) {
+          const ownerData = ownerDoc.data() as { fullName?: string; profilePicture?: string };
+          car.ownerName = ownerData.fullName;
+          car.ownerProfilePicture = ownerData.profilePicture;
+        }
+      } catch {
+        // Falha ao buscar info do dono, ignora
+      }
+
+      return car;
     } catch (error: unknown) {
       if (error instanceof FirebaseError || error instanceof FirestoreError) {
-        console.error('Error in getCarById:', (error as Error).message);
+        console.error("Error in getCarById:", (error as Error).message);
       } else {
-        console.error('Error in getCarById:', error);
+        console.error("Error in getCarById:", error);
       }
       throw error;
     }
@@ -134,325 +396,426 @@ export const carService = {
   // Update car
   async updateCar(carId: string, data: Partial<Car>): Promise<void> {
     try {
-      const carRef = doc(db, 'cars', carId);
-      
+      const carRef = doc(db, "cars", carId);
+
       // If there are images in the update, process them
       if (data.images && Array.isArray(data.images)) {
         // Filtra imagens vazias e faz upload apenas das novas (base64)
-        const validImages = data.images.filter(img => img);
+        const validImages = data.images.filter((img) => img);
         const imageUrls = await imageService.uploadImages(validImages);
         data = {
           ...data,
-          images: imageUrls
+          images: imageUrls,
         };
+      }      // Generate new search terms if relevant fields changed
+      if (data.brand || data.model || data.category || data.location) {
+        const carDoc = await getDoc(carRef);
+        if (carDoc.exists()) {
+          const currentData = carDoc.data() as FirestoreCar;
+          const mergedData = {
+            ...currentData,
+            ...data
+          };
+          data.searchTerms = generateSearchTerms(mergedData);
+        }
       }
-      
+
       await updateDoc(carRef, {
         ...data,
-        updatedAt: new Date()
+        updatedAt: Timestamp.now(),
       });
     } catch (error: unknown) {
       if (error instanceof FirebaseError || error instanceof FirestoreError) {
-        console.error('Error in updateCar:', (error as Error).message);
+        console.error("Error in updateCar:", (error as Error).message);
       } else {
-        console.error('Error in updateCar:', error);
+        console.error("Error in updateCar:", error);
       }
       throw error;
     }
-  },
-
-  // Update car availability
-  async updateCarAvailability(carId: string, availability: 'available' | 'rented' | 'maintenance'): Promise<boolean> {
+  }, // Update car availability
+  async updateCarAvailability(
+    carId: string,
+    availability: Availability
+  ): Promise<boolean> {
     try {
-      const carRef = doc(db, 'cars', carId);
+      const carRef = doc(db, "cars", carId);
       const carDoc = await getDoc(carRef);
 
       if (!carDoc.exists()) {
-        throw new Error('Car not found');
-      }      const currentData = carDoc.data();
+        throw new Error("Car not found");
+      }
 
-      // If changing to maintenance or available, cancel all active rentals
-      if (currentData.availability === 'rented' && (availability === 'available' || availability === 'maintenance')) {
-        // Find active rental
-        const rentalsQuery = query(
-          collection(db, 'rentals'),
-          where('carId', '==', carId),
-          where('status', '==', 'active')
-        );
+      const currentData = carDoc.data() as FirestoreCar & { id: string };
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error("User must be logged in to update car availability");
+      }
 
-        const rentalsSnapshot = await getDocs(rentalsQuery);
-        
-        // Cancel each active rental
-        if (!rentalsSnapshot.empty) {          const cancelPromises = rentalsSnapshot.docs.map(async (rentalDoc) => {
-              // Find and cancel all active cart items for this car
-            const cartQuery = query(
-              collection(db, 'carts'),
-              where('carId', '==', carId),
-              where('status', 'in', ['confirmed', 'pending'])
-            );
-            
-            const cartSnapshot = await getDocs(cartQuery);
-            const cartCancelPromises = cartSnapshot.docs.map(async (cartDoc) => {
-              await updateDoc(doc(db, 'carts', cartDoc.id), {
-                status: 'cancelled',
-                cancelledAt: new Date()
-              });
-            });
+      // Create a batch write for atomic operations
+      const batch = writeBatch(db);
+      const now = new Date();
 
-            await Promise.all(cartCancelPromises);
-
-            // Update rental status if it exists
-            if (rentalDoc.exists()) {
-              await updateDoc(doc(db, 'rentals', rentalDoc.id), {
-                status: 'cancelled',
-                cancelledBy: 'owner',
-                cancellationDate: new Date().toISOString(),
-                cancellationReason: availability === 'maintenance' ? 
-                  'Car under maintenance' : 
-                  'Car availability changed by owner'
-              });
-            }
-          });
-
-          await Promise.all(cancelPromises);
+      // Verify permissions based on the intended action
+      if (availability === "maintenance") {
+        // Only owner can mark as maintenance
+        if (currentData.ownerId !== user.uid) {
+          throw new Error("Only the car owner can perform this action");
         }
-      }
 
-      // Update car availability
-      await updateDoc(carRef, { 
-        availability,
-        updatedAt: new Date()
-      });
+        // Update car availability
+        batch.update(carRef, {
+          availability: "maintenance",
+          updatedAt: Timestamp.now(),
+        });
+      } else if (availability === "rented") {
+        // Check if this is for approving a rental or updating status
+        const isOwner = currentData.ownerId === user.uid;
 
-      return true;
-    } catch (error) {
-      console.error('Error updating car availability:', error);
-      throw error;
-    }
-  },
+        // For owner approval or instant booking
+        const queryConstraints = [
+          where("carId", "==", carId),
+          where("status", "==", "pending"),
+        ];
 
-  // Delete car
-  async deleteCar(carId: string): Promise<void> {
-    try {
-      // Since we're using Imgur, we don't need to delete the images
-      // They will remain on Imgur but won't be referenced anywhere
-      await deleteDoc(doc(db, 'cars', carId));
-    } catch (error: unknown) {
-      if (error instanceof FirebaseError || error instanceof FirestoreError) {
-        console.error('Error in deleteCar:', (error as Error).message);
-      } else {
-        console.error('Error in deleteCar:', error);
-      }
-      throw error;
-    }
-  },
+        // For non-owners (renters), also check that it's their own request
+        if (!isOwner && !currentData.instantBooking) {
+          queryConstraints.push(where("userId", "==", user.uid));
+        }
 
-  // Get rental information for a car
-  async getCarRentalInfo(car: Car): Promise<Car> {
-    try {
-      if (car.availability === 'rented') {
-        const cartRef = collection(db, 'carts');
+        // Get the most recent pending request
         const cartQuery = query(
-          cartRef,
-          where('carId', '==', car.id),
-          where('status', '==', 'confirmed')
+          collection(db, "carts"),
+          ...queryConstraints,
+          orderBy("createdAt", "desc"),
+          limit(1)
         );
-        
+
         const cartSnapshot = await getDocs(cartQuery);
-        const currentRental = cartSnapshot.docs[0]?.data();
-        
-        if (currentRental?.startDate && currentRental?.endDate) {
-          return {
-            ...car,
-            currentRental: {
-              startDate: (currentRental.startDate as Timestamp).toDate(),
-              endDate: (currentRental.endDate as Timestamp).toDate()
-            }
-          };
+
+        if (cartSnapshot.empty) {
+          throw new Error("No pending rental requests found for this car");
         }
-      }
-      return car;
-    } catch (error) {
-      console.error('Error in getCarRentalInfo:', error);
-      return car;
-    }
-  },
 
-  // Get all cars with filters
-  async getCars(filters?: {
-    brand?: string;
-    transmission?: 'manual' | 'automatic';
-    fuel?: 'gasoline' | 'diesel' | 'electric' | 'hybrid';
-    minPrice?: number;
-    maxPrice?: number;
-    minYear?: number;
-    maxYear?: number;
-    seats?: number;
-    city?: string;
-    state?: string;
-    location?: string;
-    availability?: 'available' | 'rented' | 'maintenance';
-    limit?: number;
-    lastDoc?: QueryDocumentSnapshot<DocumentData>;
-  }): Promise<{ cars: Car[]; lastDoc: QueryDocumentSnapshot<DocumentData> | null }> {
-    try {      const carsRef = collection(db, 'cars');
-      const queryConstraints: QueryConstraint[] = [orderBy('createdAt', 'desc')];
+        const rentalRequest = cartSnapshot.docs[0].data() as CartItem;
+        const cartItemId = cartSnapshot.docs[0].id;
 
-      // Adicionar filtros que podem ser aplicados diretamente na query
-      if (filters?.availability) {
-        queryConstraints.push(where('availability', '==', filters.availability));
-      }
+        // For non-instant booking cars, verify that the owner is the one approving
+        if (!currentData.instantBooking && !isOwner) {
+          throw new Error("Only the car owner can approve rental requests");
+        }
 
-      if (filters?.transmission) {
-        queryConstraints.push(where('transmission', '==', filters.transmission));
-      }
+        // Check the rental dates
+        const startDate =
+          rentalRequest.startDate instanceof Timestamp
+            ? rentalRequest.startDate.toDate()
+            : new Date(rentalRequest.startDate);
 
-      if (filters?.fuel) {
-        queryConstraints.push(where('fuel', '==', filters.fuel));
-      }
+        const endDate =
+          rentalRequest.endDate instanceof Timestamp
+            ? rentalRequest.endDate.toDate()
+            : new Date(rentalRequest.endDate);
 
-      if (filters?.seats) {
-        queryConstraints.push(where('seats', '==', Number(filters.seats)));
-      }
-
-      if (filters?.lastDoc) {
-        queryConstraints.push(startAfter(filters.lastDoc));
-      }
-
-      if (filters?.limit) {
-        queryConstraints.push(limit(filters.limit));
-      }      const carsQuery = query(carsRef, ...queryConstraints);
-      const querySnapshot = await getDocs(carsQuery);
-      
-      try {
-        // Converter documentos em objetos Car com informações de aluguel
-        const cars = await Promise.all(
-          querySnapshot.docs.map(async (doc) => {
-            try {
-              const car = convertFirestoreDataToCar(doc);
-
-              // Buscar informações de aluguel apenas se necessário
-              return car.availability === 'rented' ? await carService.getCarRentalInfo(car) : car;
-            } catch (error) {
-              console.error(`Error processing car ${doc.id}:`, error);
-              return null;
-            }
-          })
+        // Check if there are any other confirmed rentals that overlap with these dates
+        const overlappingQuery = query(
+          collection(db, "carts"),
+          where("carId", "==", carId),
+          where("status", "==", "confirmed")
         );
 
-        // Remover carros que falharam no processamento
-        const validCars = cars.filter((car): car is Car => car !== null);
+        const overlappingSnapshot = await getDocs(overlappingQuery);
+        const hasOverlap = overlappingSnapshot.docs.some((doc) => {
+          const data = doc.data() as CartItem;
+          const existingStart =
+            data.startDate instanceof Timestamp
+              ? data.startDate.toDate()
+              : new Date(data.startDate);
 
-        // Aplicar filtros que precisam ser feitos em memória
-        const filteredCars = validCars.filter(car => {
-          if (!filters) return true;
+          const existingEnd =
+            data.endDate instanceof Timestamp
+              ? data.endDate.toDate()
+              : new Date(data.endDate);
 
-          // Aplicar filtros de localização/pesquisa textual
-          if (filters.location) {
-            const searchTerm = filters.location.toLowerCase().trim();
-            const matchesSearch = 
-              car.brand.toLowerCase().includes(searchTerm) ||
-              car.model.toLowerCase().includes(searchTerm) ||
-              car.location.city.toLowerCase().includes(searchTerm) ||
-              car.location.state.toLowerCase().includes(searchTerm);
-            
-            if (!matchesSearch) return false;
-          }
-
-          // Filtros específicos de cidade e estado
-          if (filters.city && !car.location.city.toLowerCase().includes(filters.city.toLowerCase())) return false;
-          if (filters.state && !car.location.state.toLowerCase().includes(filters.state.toLowerCase())) return false;
-
-          // Filtros de preço
-          if (filters.minPrice && car.pricePerDay < filters.minPrice) return false;
-          if (filters.maxPrice && car.pricePerDay > filters.maxPrice) return false;
-
-          // Filtros de ano
-          if (filters.minYear && car.year < filters.minYear) return false;
-          if (filters.maxYear && car.year > filters.maxYear) return false;
-
-          return true;
+          return (
+            (startDate <= existingEnd && endDate >= existingStart) ||
+            (existingStart <= endDate && existingEnd >= startDate)
+          );
         });
 
-        return {
-          cars: filteredCars,
-          lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1]
-        };
-      } catch (error) {
-        console.error('Error processing cars:', error);
-        throw error;
-      }
-    } catch (error: unknown) {
-      if (error instanceof FirebaseError || error instanceof FirestoreError) {
-        console.error('Error in getCars:', (error as Error).message);
-      } else {
-        console.error('Error in getCars:', error);
-      }
-      throw error;
-    }
-  },
+        if (hasOverlap) {
+          throw new Error(
+            "The requested rental period overlaps with an existing rental"
+          );
+        }
 
-  // Get cars by owner
-  async getCarsByOwner(ownerId: string): Promise<Car[]> {
-    try {
-      // Buscar carros apenas pelo ownerId, sem ordenação no banco
-      const q = query(
-        collection(db, 'cars'),
-        where('ownerId', '==', ownerId)
-      );
+        // Update cart item status to confirmed
+        batch.update(doc(db, "carts", cartItemId), {
+          status: "confirmed",
+          updatedAt: Timestamp.now(),
+        });
 
-      const querySnapshot = await getDocs(q);
-      const cars = querySnapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id,
-        createdAt: (doc.data().createdAt as Timestamp).toDate(),
-        updatedAt: (doc.data().updatedAt as Timestamp).toDate()
-      })) as Car[];
+        // Update car availability and rental info
+        batch.update(carRef, {
+          availability: "rented",
+          updatedAt: Timestamp.now(),
+          currentRental: {
+            startDate: Timestamp.fromDate(startDate),
+            endDate: Timestamp.fromDate(endDate),
+            userId: rentalRequest.userId,
+          },
+        });
 
-      // Ordenar manualmente por createdAt
-      return cars.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    } catch (error: unknown) {
-      if (error instanceof FirebaseError || error instanceof FirestoreError) {
-        console.error('Error in getCarsByOwner:', (error as Error).message);
-      } else {
-        console.error('Error in getCarsByOwner:', error);
-      }
-      throw error;
-    }
-  },
+        // Cancel other pending rentals for overlapping dates
+        const otherPendingQuery = query(
+          collection(db, "carts"),
+          where("carId", "==", carId),
+          where("status", "==", "pending")
+        );
 
-  // Get featured cars
-  async getFeaturedCars(limitCount: number = 4): Promise<Car[]> {
-    try {
-      // Buscar todos os carros primeiro
-      const q = query(
-        collection(db, 'cars')
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const cars = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          ...data,
-          id: doc.id,
-          createdAt: data.createdAt ? (data.createdAt as Timestamp).toDate() : new Date(),
-          updatedAt: data.updatedAt ? (data.updatedAt as Timestamp).toDate() : new Date()
-        };
-      }) as Car[];
+        const otherPendingSnapshot = await getDocs(otherPendingQuery);
+        otherPendingSnapshot.docs.forEach((doc) => {
+          if (doc.id !== cartItemId) {
+            batch.update(doc.ref, {
+              status: "cancelled",
+              cancelledAt: Timestamp.now(),
+              cancellationReason:
+                "Another rental request was approved for this period",
+            });
+          }
+        });
+      } else if (availability === "available") {
+        // For changing availability to available
+        if (currentData.availability === "rented") {
+          // Check if user is owner or current renter
+          const cartQuery = query(
+            collection(db, "carts"),
+            where("carId", "==", carId),
+            where("status", "==", "confirmed")
+          );
+          const cartSnapshot = await getDocs(cartQuery);
 
-      if (cars.length === 0) {
-        console.log('No cars found in the database');
-        return [];
-      }
+          if (cartSnapshot.docs.length > 0) {
+            const currentRental = cartSnapshot.docs[0].data() as CartItem;
+            const isOwner = currentData.ownerId === user.uid;
+            const isRenter = currentRental.userId === user.uid;
 
-      // Embaralha todos os carros
-      const shuffled = [...cars].sort(() => 0.5 - Math.random());
+            if (!isOwner && !isRenter) {
+              throw new Error(
+                "Only the car owner or current renter can complete/cancel the rental"
+              );
+            }
 
-      // Retorna até limitCount carros
-      return shuffled.slice(0, limitCount);
+            const cartRef = doc(db, "carts", cartSnapshot.docs[0].id);
+
+            const rentalEndDate =
+              currentRental.endDate instanceof Timestamp
+                ? currentRental.endDate.toDate()
+                : new Date(currentRental.endDate);
+
+            const isRentalComplete = rentalEndDate <= now;
+
+            // Update rental status
+            batch.update(cartRef, {
+              status: isRentalComplete ? "completed" : "cancelled",
+              updatedAt: Timestamp.now(),
+              [isRentalComplete ? "completedAt" : "cancelledAt"]:
+                Timestamp.now(),
+              ...(isRentalComplete
+                ? {}
+                : {
+                    cancellationReason:
+                      "Rental cancelled by " + (isOwner ? "owner" : "renter"),
+                  }),
+            });
+          }
+        } else {
+          // For non-rented cars, only owner can change availability
+          if (currentData.ownerId !== user.uid) {
+            throw new Error("Only the car owner can update car availability");
+          }
+        }
+
+        // Update car to available
+        batch.update(carRef, {
+          availability: "available",
+          updatedAt: Timestamp.now(),
+          currentRental: null,
+        });
+      } // Commit all changes atomically
+      await batch.commit();
+      return true;
     } catch (error) {
-      console.error('Error in getFeaturedCars:', error);
-      return []; // Retorna array vazio em caso de erro
+      console.error("Error updating car availability:", error);
+      throw error;
     }
-  }
+  },
+
+  // Get cars with filters
+  async getCars(filters: GetCarsFilters = {}): Promise<{ cars: Car[]; lastDoc: QueryDocumentSnapshot | null }> {
+    try {
+      const carsRef = collection(db, "cars");
+      const queryConstraints: QueryConstraint[] = [];
+
+      // Add filters
+      if (filters.brand) {
+        queryConstraints.push(where("brand", "==", filters.brand));
+      }
+      if (filters.model) {
+        queryConstraints.push(where("model", "==", filters.model));
+      }
+      if (filters.category) {
+        queryConstraints.push(where("category", "==", filters.category));
+      }
+      if (filters.transmission) {
+        queryConstraints.push(where("transmission", "==", filters.transmission));
+      }
+      if (filters.fuel) {
+        queryConstraints.push(where("fuel", "==", filters.fuel));
+      }
+      if (filters.seats) {
+        queryConstraints.push(where("seats", "==", filters.seats));
+      }
+      if (filters.availability) {
+        queryConstraints.push(where("availability", "==", filters.availability));
+      }      // Location search (city, state or location)
+      if (filters.location) {
+        const locationTerms = filters.location.toLowerCase().trim().split(/\s+/).filter(term => term.length > 2);
+        console.log('Search terms:', locationTerms); // Debug log
+        
+        if (locationTerms.length > 0) {
+          // Sempre usa o primeiro termo significativo
+          queryConstraints.push(where("searchTerms", "array-contains", locationTerms[0]));
+        }
+      } else {
+        // Individual location filters
+        if (filters.city) {
+          queryConstraints.push(where("location.city", "==", filters.city));
+        }
+        if (filters.state) {
+          queryConstraints.push(where("location.state", "==", filters.state));
+        }
+      }
+
+      // Price filters
+      if (filters.minPrice !== undefined) {
+        queryConstraints.push(where("pricePerDay", ">=", filters.minPrice));
+      }
+      if (filters.maxPrice !== undefined) {
+        queryConstraints.push(where("pricePerDay", "<=", filters.maxPrice));
+      }
+
+      // Add orderBy - note: must be after where clauses
+      queryConstraints.push(orderBy("createdAt", "desc"));
+
+      // Add pagination
+      if (filters.limit) {
+        queryConstraints.push(limit(filters.limit));
+      }
+      if (filters.startAfter) {
+        queryConstraints.push(startAfter(filters.startAfter));
+      }
+
+      // Execute query
+      const q = query(carsRef, ...queryConstraints);
+      const snapshot = await getDocs(q);
+      
+      const cars = await Promise.all(
+        snapshot.docs.map(async (carDoc) => {
+          const car = convertFirestoreDataToCar(carDoc);
+          try {
+            const ownerRef = doc(db, "users", car.ownerId);
+            const ownerDoc = await getDoc(ownerRef);
+            if (ownerDoc.exists()) {
+              const ownerData = ownerDoc.data() as { fullName?: string; profilePicture?: string };
+              car.ownerName = ownerData.fullName;
+              car.ownerProfilePicture = ownerData.profilePicture;
+            }
+          } catch {
+            // Falha ao buscar info do dono, ignora
+          }
+          return car;
+        })
+      );
+
+      return {
+        cars,
+        lastDoc: snapshot.docs[snapshot.docs.length - 1] || null
+      };
+    } catch (error) {
+      console.error("Error getting cars:", error);
+      throw error;
+    }
+  },
+  // Get featured cars
+  async getFeaturedCars(maxResults = 4): Promise<Car[]> {
+    try {
+      const carsRef = collection(db, "cars");
+      const queryConstraints: QueryConstraint[] = [
+        where("availability", "==", "available"),
+        orderBy("createdAt", "desc"),
+        limit(maxResults)
+      ];
+
+      const q = query(carsRef, ...queryConstraints);
+      const snapshot = await getDocs(q);
+      
+      const cars = await Promise.all(
+        snapshot.docs.map(async (carDoc) => {
+          const car = convertFirestoreDataToCar(carDoc);
+          try {
+            const ownerRef = doc(db, "users", car.ownerId);
+            const ownerDoc = await getDoc(ownerRef);
+            if (ownerDoc.exists()) {
+              const ownerData = ownerDoc.data() as { fullName?: string; profilePicture?: string };
+              car.ownerName = ownerData.fullName;
+              car.ownerProfilePicture = ownerData.profilePicture;
+            }
+          } catch {
+            // Falha ao buscar info do dono, ignora
+          }
+          return car;
+        })
+      );
+
+      return cars;
+    } catch (error) {
+      console.error("Error getting featured cars:", error);
+      throw error;
+    }
+  },
+
+  // Update search terms for all cars
+  async updateAllSearchTerms(): Promise<void> {
+    try {
+      const snapshot = await getDocs(collection(db, "cars"));
+      const batch = writeBatch(db);
+      let count = 0;
+
+      for (const doc of snapshot.docs) {
+        const car = doc.data() as FirestoreCar;
+        const searchTerms = generateSearchTerms({
+          brand: car.brand,
+          model: car.model,
+          category: car.category,
+          location: car.location,
+        });
+
+        batch.update(doc.ref, { searchTerms });
+        count++;
+
+        // Firestore limits batches to 500 operations
+        if (count % 400 === 0) {
+          await batch.commit();
+        }
+      }
+
+      if (count % 400 !== 0) {
+        await batch.commit();
+      }
+
+      console.log(`Updated search terms for ${count} cars`);
+    } catch (error) {
+      console.error("Error updating search terms:", error);
+      throw error;
+    }
+  },
 };
