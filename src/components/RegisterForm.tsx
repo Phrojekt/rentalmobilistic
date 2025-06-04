@@ -21,7 +21,7 @@ export function RegisterForm() {
     setError("");
 
     if (formData.password !== formData.confirmPassword) {
-      setError("As senhas não coincidem");
+      setError("Passwords do not match");
       return;
     }
 
@@ -33,28 +33,26 @@ export function RegisterForm() {
       );
       router.push('/login');
     } catch (err) {
-      console.error("Erro no registro:", err);
-      // Tratamento específico para erros do Firebase
-      // Tratamento específico para erros do Firebase
+      console.error("Registration error:", err);
       if (err instanceof FirebaseError && err.code) {
         switch (err.code) {
           case 'auth/email-already-in-use':
-            setError('Este e-mail já está sendo usado por outra conta.');
+            setError('This email is already in use by another account.');
             break;
           case 'auth/invalid-email':
-            setError('O e-mail fornecido é inválido.');
+            setError('The provided email is invalid.');
             break;
           case 'auth/operation-not-allowed':
-            setError('O registro com e-mail e senha não está habilitado.');
+            setError('Registration with email and password is not enabled.');
             break;
           case 'auth/weak-password':
-            setError('A senha deve ter pelo menos 6 caracteres.');
+            setError('The password must be at least 6 characters.');
             break;
           default:
-            setError(err.message || 'Erro ao criar conta. Tente novamente.');
+            setError(err.message || 'Error creating account. Please try again.');
         }
       } else {
-        setError('Erro ao criar conta. Tente novamente.');
+        setError('Error creating account. Please try again.');
       }
     }
   };
@@ -94,14 +92,14 @@ export function RegisterForm() {
             type: "text",
             name: "fullName",
             value: formData.fullName,
-            placeholder: "Seu nome completo",
+            placeholder: "Your full name",
           },
           {
             label: "Email",
             type: "email",
             name: "email",
             value: formData.email,
-            placeholder: "exemplo@email.com",
+            placeholder: "example@email.com",
           },
           {
             label: "Password",
