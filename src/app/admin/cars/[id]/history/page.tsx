@@ -54,7 +54,7 @@ export default function RentalHistoryPage() {
     return (
       <div className="container mx-auto p-6">
         <div className="flex justify-center items-center min-h-[400px]">
-          <div className="text-[#676773]">Carregando...</div>
+          <div className="text-black">Loading...</div>
         </div>
       </div>
     );

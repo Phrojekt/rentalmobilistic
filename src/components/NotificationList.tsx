@@ -91,7 +91,7 @@ export default function NotificationList() {
   };
 
   if (loading) {
-    return <div className="text-center py-4">Loading notifications...</div>;
+    return <div className="text-center text-black py-4">Loading notifications...</div>;
   }
 
   if (notifications.length === 0) {

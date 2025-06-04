@@ -1,6 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import Header from "../components/Header";
 interface SearchFilters {
   location?: string;
@@ -17,6 +19,28 @@ import Footer from "@/components/Footer";
 
 export default function Home() {
   const router = useRouter();
+  const { user, loading } = useAuth();
+  
+  // Redirect logged in users to /cars
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/cars');
+    }
+  }, [user, loading, router]);
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
+  // Don't render the home page if user is logged in (redirect is in progress)
+  if (user) {
+    return null;
+  }
   
   const handleSearch = (filters: SearchFilters) => {
     // Constrói a URL com os parâmetros de busca
@@ -31,7 +55,6 @@ export default function Home() {
 
   return (
     <main className="bg-white text-gray-900">
-
       <Header />
       <Hero />
       <SearchBar onSearch={handleSearch} />

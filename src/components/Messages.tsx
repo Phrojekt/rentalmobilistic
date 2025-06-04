@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { notificationService } from '@/services/notificationService';
 import type { Notification } from '@/services/notificationService';
 
-export default function Messages() {
+export default function Messages({ hideBell = false }: { hideBell?: boolean }) {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -56,14 +56,55 @@ export default function Messages() {
 
   if (!user) return null;
 
+  // Se hideBell for true, mostra só a lista de notificações, sem botão
+  if (hideBell) {
+    return (
+      <div className="w-full">
+        <div className="max-h-96 overflow-y-auto">
+          {notifications.length === 0 ? (
+            <div className="p-4 text-center text-gray-500">
+              No notifications
+            </div>
+          ) : (
+            notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`p-4 border-b border-gray-100 ${
+                  !notification.read ? 'bg-orange-50' : ''
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm text-black">{notification.message}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(notification.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  {!notification.read && (
+                    <button
+                      onClick={() => handleMarkAsRead(notification.id)}
+                      className="text-xs text-[#EA580C] hover:text-[#EA580C]/80"
+                    >
+                      Mark as read
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
       <button
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-[#EA580C] transition-colors"
+        className="relative p-2 cursor-pointer text-gray-600 hover:text-[#EA580C] transition-colors"
       >
-        <Bell className="h-6 w-6" />
+        <Bell className="cursor-pointer h-6 w-6" />
         {unreadCount > 0 && (
           <span className="absolute top-0 right-0 -mt-1 -mr-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
             {unreadCount}
