@@ -2,7 +2,7 @@ import Image from 'next/image';
 
 export default function Footer() {
   return (
-    <div className="flex w-full h-[281px] p-[20px_24px] justify-between items-start flex-wrap gap-5 bg-[#F8FAFC] max-lg:h-auto">
+    <div className="flex w-full h-[281px] p-[20px_24px] justify-between items-start flex-wrap gap-5 bg-[#F8FAFC] max-lg:h-auto mt-12">
       <div className="flex w-[280px] h-[210px] pb-5 flex-col items-start gap-2.5 max-lg:w-[calc(50%-10px)] max-sm:w-full">
         <div className="flex h-[58px] py-[10px] items-center gap-2.5 w-full">
           {/* Substituindo o SVG pelo RentalIcon.png */}

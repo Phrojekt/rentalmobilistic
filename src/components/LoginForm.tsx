@@ -74,13 +74,13 @@ export function LoginForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex w-[500px] h-auto p-6 flex-col items-center gap-5 rounded-lg border-[0.75px] border-[#676773] bg-white max-sm:w-full"
+      className="flex w-[500px] h-auto p-6 flex-col items-center gap-5 rounded-lg border-[0.75px] border-[#676773] bg-white max-sm:w-[92vw] max-sm:mx-auto"
     >
       <div className="flex flex-col gap-2 w-full">
-        <h1 className="text-black font-geist text-3xl font-bold">
+        <h1 className="text-black font-geist text-3xl font-bold whitespace-nowrap max-sm:text-2xl max-sm:whitespace-nowrap">
           Log in to your account
         </h1>
-        <p className="text-[#676773] font-inter text-base">
+        <p className="text-[#676773] font-inter text-base max-sm:text-sm max-sm:whitespace-normal">
           Enter your email and password to access your account
         </p>
       </div>
@@ -92,7 +92,7 @@ export function LoginForm() {
       )}
 
       <div className="flex flex-col w-full gap-2">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 max-sm:gap-1.5">
           <label
             htmlFor="email"
             className="text-black font-geist text-sm font-bold"
@@ -111,7 +111,7 @@ export function LoginForm() {
           />
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 max-sm:gap-1.5">
           <label
             htmlFor="password"
             className="text-black font-geist text-sm font-bold"

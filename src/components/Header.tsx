@@ -8,6 +8,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Messages from "./Messages";
 import { HiMenu } from "react-icons/hi";
+import { FiLogIn } from "react-icons/fi";
 
 export default function Header() {
   const { user, loading } = useAuth();
@@ -172,14 +173,22 @@ export default function Header() {
             <div className="flex items-center space-x-4">
               <Link
                 href="/login"
-                className="text-black hover:text-[#EA580C] font-inter text-base"
+                className="flex items-center gap-2 text-black font-inter text-base font-bold px-3 py-2 rounded-lg transition-colors hover:text-[#EA580C] hover:bg-gray-100"
               >
+                <FiLogIn size={18} />
                 Login
               </Link>
               <Link
                 href="/register"
-                className="bg-[#EA580C] text-white px-4 py-2 rounded-lg font-inter text-base hover:bg-[#EA580C]/90"
+                className="bg-[#EA580C] text-white px-4 py-2 rounded-lg font-inter text-base font-bold flex items-center gap-2 hover:bg-[#EA580C]/90 transition-colors"
               >
+                <Image
+                  src="/Add_user_whiteIcon.png"
+                  alt="Register"
+                  width={20}
+                  height={20}
+                  className="w-5 h-5"
+                />
                 Register
               </Link>
             </div>
@@ -199,20 +208,61 @@ export default function Header() {
               </button>
             </>
           ) : (
-            <div className="flex items-center space-x-2">
-              <Link
-                href="/login"
-                className="text-black hover:text-[#EA580C] font-inter text-base"
+            <>
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="p-2 rounded-md text-black hover:text-[#EA580C] focus:outline-none cursor-pointer"
+                aria-label="Open menu"
               >
-                Login
-              </Link>
-              <Link
-                href="/register"
-                className="bg-[#EA580C] text-white px-3 py-1.5 rounded-lg font-inter text-base hover:bg-[#EA580C]/90"
-              >
-                Register
-              </Link>
-            </div>
+                <HiMenu size={28} />
+              </button>
+              {mobileMenuOpen && (
+                <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex justify-end md:hidden">
+                  <div className="w-4/5 max-w-xs bg-white h-full shadow-lg flex flex-col relative">
+                    {/* Topo do menu: botão de fechar */}
+                    <div className="flex items-center justify-end h-16 px-4 border-b">
+                      <button
+                        className="text-2xl text-gray-500 hover:text-[#EA580C] cursor-pointer"
+                        onClick={() => setMobileMenuOpen(false)}
+                        aria-label="Fechar menu"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    {/* Opções */}
+                    <nav className="flex flex-col gap-1 px-4 mt-6">
+                      <Link
+                        href="/login"
+                        className="block px-2 py-2 text-black font-inter text-base rounded hover:bg-gray-50 transition-colors"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Login
+                      </Link>
+                      <Link
+                        href="/register"
+                        className="block px-4 py-3 text-white bg-[#EA580C] font-inter text-lg rounded-lg hover:bg-[#EA580C]/90 transition-colors font-bold shadow-md text-center flex items-center justify-center gap-2"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <Image
+                          src="/Add_user_whiteIcon.png"
+                          alt="Register"
+                          width={20}
+                          height={20}
+                          className="w-5 h-5"
+                        />
+                        Register
+                      </Link>
+                    </nav>
+                  </div>
+                  {/* Clique fora fecha o menu */}
+                  <div
+                    className="flex-1"
+                    onClick={() => setMobileMenuOpen(false)}
+                    tabIndex={-1}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -333,6 +383,75 @@ export default function Header() {
                 setMobileMenuOpen(false);
                 setMobileBellOpen(false);
               }}
+              tabIndex={-1}
+            />
+          </div>
+        )}
+
+        {/* Mobile Menu Drawer (sem usuário) */}
+        {mobileMenuOpen && !user && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex justify-end md:hidden">
+            <div className="w-4/5 max-w-xs bg-white h-full shadow-2xl flex flex-col relative animate-slide-in">
+              {/* Topo do menu: Logo menor e texto alinhado */}
+              <div className="flex items-center justify-between h-16 px-4 border-b">
+                <Link
+                  href="/"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2"
+                >
+                  <Image
+                    src="/RentalIcon.png"
+                    alt="Rental Icon"
+                    width={24}
+                    height={24}
+                    className="w-6 h-6"
+                  />
+                  <span className="text-[#EA580C] font-geist text-base font-black tracking-tight leading-none">
+                    Rental Mobilistic
+                  </span>
+                </Link>
+                <button
+                  className="text-2xl text-gray-400 hover:text-[#EA580C] transition-colors cursor-pointer"
+                  onClick={() => setMobileMenuOpen(false)}
+                  aria-label="Fechar menu"
+                >
+                  ×
+                </button>
+              </div>
+              {/* Opções */}
+              <nav className="flex flex-col gap-4 px-6 py-10 flex-1">
+                <Link
+                  href="/login"
+                  className="flex items-center justify-center gap-2 px-4 py-3 text-black font-inter text-lg font-bold rounded-lg hover:text-[#EA580C] hover:bg-gray-100 transition-colors shadow-sm"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <FiLogIn size={20} />
+                  Login
+                </Link>
+                <Link
+                  href="/register"
+                  className="flex items-center justify-center gap-2 px-4 py-3 text-white bg-[#EA580C] font-inter text-lg font-bold rounded-lg hover:bg-[#EA580C]/90 transition-colors shadow-md"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Image
+                    src="/Add_user_whiteIcon.png"
+                    alt="Register"
+                    width={20}
+                    height={20}
+                    className="w-5 h-5"
+                  />
+                  Register
+                </Link>
+              </nav>
+              {/* Rodapé opcional */}
+              <div className="px-6 pb-6 mt-auto text-xs text-gray-400">
+                © {new Date().getFullYear()} Rental Mobilistic
+              </div>
+            </div>
+            {/* Clique fora fecha o menu */}
+            <div
+              className="flex-1"
+              onClick={() => setMobileMenuOpen(false)}
               tabIndex={-1}
             />
           </div>
