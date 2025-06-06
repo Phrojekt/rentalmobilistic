@@ -16,8 +16,9 @@ export default function CarCard({ car, href }: CarCardProps) {
           <Image
             src={car.images[0]}
             alt={car.name}
-            fill
-            className="object-cover"
+            width={320}
+            height={160}
+            className="object-cover w-full h-full"
             sizes="320px"
             priority={false}
           />

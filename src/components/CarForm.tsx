@@ -1002,6 +1002,7 @@ export default function CarForm({ initialData, onSubmit }: CarFormProps) {
                   className={`
                     px-8 py-2 rounded text-white font-bold flex items-center gap-2 transition-colors
                     ${loading ? "bg-[#EA580C]/70" : "bg-[#EA580C] hover:bg-[#EA580C]/90"}
+                    cursor-pointer
                   `}
                 >
                   {loading ? (

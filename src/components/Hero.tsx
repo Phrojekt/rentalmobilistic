@@ -33,13 +33,13 @@ export default function Hero() {
           <div className="flex w-[600px] h-[60px] pr-2.5 items-end gap-2.5 max-lg:w-full max-md:flex-col max-md:gap-3 max-md:h-auto max-md:pr-0">
             <button
               onClick={handleRegisterClick}
-              className="text-white font-geist text-lg font-bold w-[250px] h-[60px] p-2.5 gap-2.5 rounded-lg bg-[#EA580C] max-md:w-full max-md:h-12 flex items-center justify-center cursor-pointer hover:bg-[#d46a28] transition-colors"
+              className="text-white font-geist text-lg font-bold w-[250px] h-[60px] p-2.5 gap-2.5 rounded-lg bg-[#EA580C] max-md:w-full max-md:h-12 flex items-center justify-center cursor-pointer hover:bg-[#d45207] transition-colors"
             >
               {user ? "Register Car" : "Register for Free"}
             </button>
             <Link
               href="/cars"
-              className="text-white font-geist text-lg font-bold w-[250px] h-[60px] p-2.5 gap-2.5 rounded-lg border border-[#EA580C] bg-[#2B3344] max-md:w-full max-md:h-12 flex items-center justify-center cursor-pointer hover:bg-[#182033] hover:border-[#d46a28] transition-colors"
+              className="text-white font-geist text-lg font-bold w-[250px] h-[60px] p-2.5 gap-2.5 rounded-lg border border-[#EA580C]/10 bg-[#2B3344] max-md:w-full max-md:h-12 flex items-center justify-center cursor-pointer hover:bg-[#1B202C] hover:border-[#d46a28] transition-colors"
             >
               View Available Cars
             </Link>

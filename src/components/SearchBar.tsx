@@ -60,7 +60,14 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
             <button
               type="submit"
               disabled={isSearching}
-              className="flex w-[180px] h-[48px] justify-center items-center gap-2 rounded-lg bg-[#EA580C] text-white text-lg font-bold font-geist hover:bg-[#d64d08] transition-colors disabled:bg-[#d64d08] disabled:cursor-not-allowed max-md:w-full max-md:mt-1"
+              className={`
+                flex w-[180px] h-[48px] justify-center items-center gap-2 rounded-lg
+                bg-[#EA580C] text-white text-lg font-bold font-geist
+                transition-colors
+                hover:bg-[#d45207] cursor-pointer active:bg-[#d64d08]
+                disabled:bg-[#d64d08] disabled:cursor-not-allowed
+                max-md:w-full max-md:mt-1
+              `}
             >
               <svg
                 width="18"

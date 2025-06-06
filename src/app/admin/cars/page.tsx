@@ -142,16 +142,17 @@ function AdminCarsPageContent() {  const { user, loading: authLoading } = useAut
     return (
       <div
         key={activeTab === 'my-cars' ? car.id : `${car.id}-${car.rentalId || ''}`}
-        className="border rounded-lg p-0 bg-white shadow-sm flex flex-col w-full min-h-[300px] sm:min-h-[300px] md:min-h-[320px] xl:min-h-[340px]"
+        className="flex flex-col items-center gap-2.5 rounded-lg border-[0.75px] border-[#D4D4D4] bg-white mx-auto transition-colors relative w-[320px] min-h-[346px]"
       >
         {/* Banner - responsive height */}
-        <div className="relative h-32 sm:h-40 bg-gray-100 rounded-t-lg overflow-hidden flex items-center justify-center">
+        <div className="relative w-full aspect-[2/1] bg-gray-100 rounded-t-lg overflow-hidden flex items-center justify-center">
           {car.images?.[0] ? (
             <Image
               src={car.images[0]}
               alt={car.name}
-              fill
-              className="object-cover"
+              width={320}
+              height={160}
+              className="object-cover w-full h-full"
             />
           ) : (
             <div className="flex flex-col items-center justify-center w-full h-full">
@@ -186,11 +187,11 @@ function AdminCarsPageContent() {  const { user, loading: authLoading } = useAut
         </div>
         
         {/* Content - responsive padding and text sizes */}
-        <div className="p-3 sm:p-4 flex-1 flex flex-col">
+        <div className="p-4 flex-1 flex flex-col items-start w-full">
           {/* Name and availability */}
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between w-full mb-1">
             <h2 className="text-black font-bold text-base sm:text-lg truncate">{car.name}</h2>
-            {/* Status badges - responsive */}
+            {/* Status badges */}
             {car.availability === "available" && (
               <span className="bg-green-100 text-green-700 text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap">
                 Active
@@ -208,14 +209,14 @@ function AdminCarsPageContent() {  const { user, loading: authLoading } = useAut
             )}
           </div>
           
-          {/* Location - responsive */}
-          <div className="flex items-center gap-1 sm:gap-2 text-[#676773] text-xs sm:text-sm mb-2 sm:mb-3">
+          {/* Location */}
+          <div className="flex items-center gap-2 text-[#676773] text-xs sm:text-sm mb-2 sm:mb-3 w-full">
             <Image src="/gps_icon.png" alt="Location Icon" width={14} height={14} className="sm:w-4 sm:h-4" />
             <span className="truncate">{car.location.city}, {car.location.state}</span>
           </div>
           
-          {/* Booking Rate - responsive */}
-          <div className="flex items-center justify-between text-xs text-[#676773] mb-1">
+          {/* Booking Rate */}
+          <div className="flex items-center justify-between text-xs text-[#676773] mb-1 w-full">
             <span>Booking rate</span>
             <span>{bookingRate}%</span>
           </div>
@@ -226,14 +227,13 @@ function AdminCarsPageContent() {  const { user, loading: authLoading } = useAut
             />
           </div>
           
-          {/* Actions - responsive buttons */}
-          <div className="flex items-center justify-between gap-2 sm:gap-4 mt-auto">
+          {/* Actions */}
+          <div className="flex w-full gap-3 mt-auto">
             {activeTab === 'my-cars' ? (
               <>
-                {/* Manage dropdown - responsive */}
-                <div className="relative flex-1 min-w-0">
+                <div className="relative flex-1 min-w-[110px]">
                   <button
-                    className="w-full flex items-center justify-center gap-1 px-2 sm:px-3 py-2 sm:py-1.5 border rounded bg-white text-black font-semibold hover:bg-gray-100 cursor-pointer text-xs sm:text-sm min-w-0"
+                    className="w-full flex items-center justify-center gap-1 px-3 py-2 border rounded bg-white text-black font-semibold hover:bg-gray-100 cursor-pointer text-xs sm:text-sm"
                     onClick={() => setOpenMenuId(openMenuId === car.id ? null : car.id)}
                     type="button"
                   >
@@ -258,7 +258,7 @@ function AdminCarsPageContent() {  const { user, loading: authLoading } = useAut
                           setSelectedCarForAvailability(car);
                           setOpenMenuId(null);
                         }}
-                        className="block w-full text-left px-3 sm:px-4 py-2 hover:bg-gray-100 text-black text-xs sm:text-sm"
+                        className="block w-full cursor-pointer text-left px-3 sm:px-4 py-2 hover:bg-gray-100 text-black text-xs sm:text-sm"
                       >
                         Update Availability
                       </button>
@@ -272,20 +272,17 @@ function AdminCarsPageContent() {  const { user, loading: authLoading } = useAut
                     </div>
                   )}
                 </div>
-                
-                {/* Remove button - responsive */}
                 <button
-                  className="flex-1 flex items-center justify-center gap-1 px-2 sm:px-3 py-2 sm:py-1.5 bg-red-600 text-white rounded hover:bg-red-700 font-semibold cursor-pointer text-xs sm:text-sm min-w-0"
+                  className="flex-1 min-w-[110px] flex items-center justify-center gap-1 px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-semibold cursor-pointer text-xs sm:text-sm"
                   onClick={() => handleDelete(car.id)}
                 >
                   <span className="truncate">Remove</span>
                 </button>
               </>
             ) : (
-              // View details for rented cars - responsive
               <Link
                 href={`/cars/${car.id}`}
-                className="w-full flex items-center justify-center gap-1 px-2 sm:px-3 py-2 sm:py-1.5 border rounded bg-white text-black font-semibold hover:bg-gray-100 cursor-pointer text-xs sm:text-sm min-w-0"
+                className="w-full flex-1 min-w-[110px] flex items-center justify-center gap-1 px-3 py-2 border rounded bg-white text-black font-semibold hover:bg-gray-100 cursor-pointer text-xs sm:text-sm"
               >
                 <span className="truncate">View Details</span>
               </Link>
@@ -405,7 +402,7 @@ function AdminCarsPageContent() {  const { user, loading: authLoading } = useAut
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 justify-center">
               {filteredCars.map(car => (
                 <React.Fragment key={car.id}>
                   {renderCarCard(car)}
