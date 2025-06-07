@@ -291,7 +291,7 @@ export default function CarDetails() {
                 <button
                   key={tab}
                   onClick={() => setSelectedTab(tab as typeof selectedTab)}
-                  className={`px-5 py-2 rounded-t font-semibold text-sm border-b-2 ${
+                  className={`px-5 py-2 rounded-t font-semibold text-sm border-b-2 cursor-pointer ${
                     selectedTab === tab
                       ? "bg-white border-orange-500 text-black"
                       : "bg-gray-100 border-transparent text-gray-500"
