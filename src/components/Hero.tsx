@@ -28,7 +28,7 @@ export default function Hero() {
               max-lg:text-3xl
               max-md:text-2xl
               max-sm:text-xl
-              max-[400px]:text-lg
+              max-[400px]:text-2xl
             "
           >
             {user ? "Register your car" : "Rent or list your car"}
