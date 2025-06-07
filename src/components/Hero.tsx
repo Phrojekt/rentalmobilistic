@@ -25,10 +25,10 @@ export default function Hero() {
             className="
               text-white font-geist font-black leading-tight
               text-5xl
-              max-lg:text-3xl
-              max-md:text-2xl
-              max-sm:text-xl
-              max-[400px]:text-2xl
+              max-lg:text-4xl
+              max-md:text-3xl
+              max-sm:text-text-2xl
+              max-[400px]:text-xl
             "
           >
             {user ? "Register your car" : "Rent or list your car"}
