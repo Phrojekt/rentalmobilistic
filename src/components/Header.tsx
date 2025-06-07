@@ -7,7 +7,7 @@ import { userService } from "@/services/userService";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Messages from "./Messages";
-import { HiMenu } from "react-icons/hi";
+import { HiMenu, HiChevronLeft } from "react-icons/hi";
 import { FiLogIn } from "react-icons/fi";
 import { User, Bell, Car, PlusCircle, ClipboardList, LogOut } from "lucide-react";
 
@@ -305,6 +305,15 @@ export default function Header() {
               ) : (
                 // Notifications screen in mobile menu
                 <div className="flex-1 flex flex-col overflow-y-auto">
+                  {/* Back button */}
+                  <button
+                    className="flex items-center gap-2 px-2 py-4 text-black font-inter text-base font-semibold focus:outline-none"
+                    style={{ paddingLeft: "1.5rem" }} // matches px-6 of menu
+                    onClick={() => setMobileBellOpen(false)}
+                  >
+                    <HiChevronLeft size={24} className="text-[#EA580C]" />
+                    <span>Back</span>
+                  </button>
                   <div className="flex-1 overflow-y-auto px-2 pb-4">
                     {/* Notifications content, no bell button */}
                     <Messages hideBell />
