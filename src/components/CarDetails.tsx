@@ -216,7 +216,7 @@ export default function CarDetails() {
     if (car?.availability === 'available' && !car?.rentalInfo?.status) {
       return (
         <button
-          className="w-full font-bold py-2 rounded bg-orange-600 hover:bg-orange-700 text-white transition-colors"
+          className="w-full font-bold cursor-pointer py-2 rounded bg-orange-600 hover:bg-orange-700 text-white transition-colors"
           onClick={() => setIsBookingModalOpen(true)}
         >
           {car.instantBooking ? 'Book Now' : 'Request Rental'}
